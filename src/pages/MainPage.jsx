@@ -11,8 +11,8 @@ function canFullscreen() {
 async function requestFullscreen() {
   const el = document.documentElement;
   if (el.requestFullscreen) return el.requestFullscreen();
-  if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen(); // Safari
-  if (el.msRequestFullscreen) return el.msRequestFullscreen(); // legacy
+  if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+  if (el.msRequestFullscreen) return el.msRequestFullscreen();
 }
 
 function exitFullscreen() {
@@ -24,6 +24,12 @@ function exitFullscreen() {
 function isFullscreenNow() {
   return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
 }
+
+const DEFAULT_SIZE = {
+  rect: { w: 180, h: 120 },
+  circle: { w: 150, h: 150 },
+  text: { w: 340, h: 70 },
+};
 
 export default function MainPage() {
   // =========================
@@ -46,7 +52,6 @@ export default function MainPage() {
     };
   }, [syncFsState]);
 
-  // Wyjście: ESC działa zawsze; dodajemy też Space jako "wyjdź" (na desktopie)
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === " " && isFullscreenNow()) {
@@ -72,11 +77,12 @@ export default function MainPage() {
   };
 
   // =========================
-  // EDITOR (RND + OŁÓWEK)
+  // EDITOR
   // =========================
   const stageRef = useRef(null);
   const colorInputRef = useRef(null);
 
+  // Pencil canvas
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const activePointerIdRef = useRef(null);
@@ -85,7 +91,10 @@ export default function MainPage() {
   const [elements, setElements] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
 
-  const [tool, setTool] = useState("select"); // select | pencil
+  // Tryby:
+  // select | pencil | place_rect_fill | place_rect_outline | place_circle_fill | place_circle_outline | place_text
+  const [tool, setTool] = useState("select");
+
   const [currentColor, setCurrentColor] = useState("#ff2d55");
   const [strokeWidth, setStrokeWidth] = useState(5);
 
@@ -106,70 +115,114 @@ export default function MainPage() {
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   };
 
-  const getCenterPos = () => {
+  const clampToStage = (x, y, w, h) => {
     const { width, height } = getStageRect();
-    return {
-      x: Math.max(10, Math.round(width / 2 - 80)),
-      y: Math.max(10, Math.round(height / 2 - 60)),
-    };
+    const nx = Math.max(0, Math.min(x, Math.max(0, width - w)));
+    const ny = Math.max(0, Math.min(y, Math.max(0, height - h)));
+    return { x: nx, y: ny };
   };
 
-  const addRect = (filled) => {
-    const { x, y } = getCenterPos();
-    const el = {
-      id: Date.now(),
-      type: "shape",
-      shape: "rect",
-      filled,
-      color: currentColor,
-      strokeWidth: Math.max(1, Number(strokeWidth) || 1),
-      width: 180,
-      height: 120,
-      x,
-      y,
-    };
-    setElements((prev) => [...prev, el]);
-    setSelectedId(el.id);
-    setTool("select");
+  // =========================
+  // PLACE TOOL: tworzenie obiektu dopiero po kliknięciu na stage
+  // =========================
+  const createElementAt = (clientX, clientY) => {
+    const { left, top } = getStageRect();
+    const x0 = clientX - left;
+    const y0 = clientY - top;
+
+    const id = Date.now();
+
+    const isRect = tool === "place_rect_fill" || tool === "place_rect_outline";
+    const isCircle = tool === "place_circle_fill" || tool === "place_circle_outline";
+    const isText = tool === "place_text";
+
+    if (!isRect && !isCircle && !isText) return;
+
+    if (isRect) {
+      const { w, h } = DEFAULT_SIZE.rect;
+      const pos = clampToStage(x0 - w / 2, y0 - h / 2, w, h);
+      const filled = tool === "place_rect_fill";
+      const el = {
+        id,
+        type: "shape",
+        shape: "rect",
+        filled,
+        color: currentColor,
+        strokeWidth: Math.max(1, Number(strokeWidth) || 1),
+        width: w,
+        height: h,
+        x: pos.x,
+        y: pos.y,
+      };
+      setElements((prev) => [...prev, el]);
+      setSelectedId(id);
+      setTool("select");
+      return;
+    }
+
+    if (isCircle) {
+      const { w, h } = DEFAULT_SIZE.circle;
+      const pos = clampToStage(x0 - w / 2, y0 - h / 2, w, h);
+      const filled = tool === "place_circle_fill";
+      const el = {
+        id,
+        type: "shape",
+        shape: "circle",
+        filled,
+        color: currentColor,
+        strokeWidth: Math.max(1, Number(strokeWidth) || 1),
+        width: w,
+        height: h,
+        x: pos.x,
+        y: pos.y,
+      };
+      setElements((prev) => [...prev, el]);
+      setSelectedId(id);
+      setTool("select");
+      return;
+    }
+
+    if (isText) {
+      const { w, h } = DEFAULT_SIZE.text;
+      const pos = clampToStage(x0 - w / 2, y0 - h / 2, w, h);
+      const el = {
+        id,
+        type: "text",
+        content: newText.trim() ? newText : "Tekst",
+        color: currentColor,
+        fontSize: Math.max(1, Number(newFontSize) || 32),
+        width: w,
+        height: h,
+        x: pos.x,
+        y: pos.y,
+      };
+      setElements((prev) => [...prev, el]);
+      setSelectedId(id);
+      setTool("select");
+    }
   };
 
-  const addCircle = (filled) => {
-    const { x, y } = getCenterPos();
-    const el = {
-      id: Date.now(),
-      type: "shape",
-      shape: "circle",
-      filled,
-      color: currentColor,
-      strokeWidth: Math.max(1, Number(strokeWidth) || 1),
-      width: 150,
-      height: 150,
-      x,
-      y,
-    };
-    setElements((prev) => [...prev, el]);
-    setSelectedId(el.id);
-    setTool("select");
+  // stage click: selekcja/odznaczanie + place tool
+  const onStagePointerDownCapture = (e) => {
+    // jeśli jesteśmy w trybie "place_*" i dotkniemy stage -> tworzymy element
+    if (tool.startsWith("place_")) {
+      // ignoruj klik w panel/scroll itp. tylko stage
+      if (!stageRef.current) return;
+      // ważne: zawsze tworzymy, nawet gdy targetem jest child (np overlay/canvas)
+      e.preventDefault();
+      createElementAt(e.clientX, e.clientY);
+      return;
+    }
+
+    // selekcja: klik w tło odznacza
+    if (tool === "select") {
+      if (e.target === stageRef.current) setSelectedId(null);
+    }
   };
 
-  const addText = () => {
-    const { x, y } = getCenterPos();
-    const el = {
-      id: Date.now(),
-      type: "text",
-      content: newText.trim() ? newText : "Tekst",
-      color: currentColor,
-      fontSize: Math.max(1, Number(newFontSize) || 32),
-      width: 340,
-      height: 70,
-      x: Math.max(10, x - 90),
-      y,
-    };
-    setElements((prev) => [...prev, el]);
-    setSelectedId(el.id);
-    setTool("select");
-  };
-
+  // =========================
+  // ELEMENT ACTIONS
+  // =========================
   const deleteSelected = () => {
     if (!selectedId) return;
     setElements((prev) => prev.filter((e) => e.id !== selectedId));
@@ -186,12 +239,6 @@ export default function MainPage() {
   const updateSelected = (patch) => {
     if (!selectedId) return;
     setElements((prev) => prev.map((e) => (e.id === selectedId ? { ...e, ...patch } : e)));
-  };
-
-  // Odznaczanie tylko gdy klik w tło (a nie w obiekty) — używamy CAPTURE żeby Rnd mógł stopPropagation
-  const onStagePointerDownCapture = (e) => {
-    if (tool !== "select") return;
-    if (e.target === stageRef.current) setSelectedId(null);
   };
 
   // =========================
@@ -254,7 +301,8 @@ export default function MainPage() {
   }, [strokes, redrawAllStrokes]);
 
   // =========================
-  // PENCIL: pointer handling (TOUCH PERFECT)
+  // PENCIL: always draw (also when starting on objects)
+  // In pencil mode objects are pointer-events: none (CSS class)
   // =========================
   const getLocalPoint = (evt) => {
     const { left, top } = getStageRect();
@@ -265,7 +313,6 @@ export default function MainPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // tylko jeden pointer naraz (palec / rysik)
     drawingRef.current = true;
     activePointerIdRef.current = evt.pointerId;
 
@@ -287,7 +334,6 @@ export default function MainPage() {
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 
-    // pointer capture MUST na mobile
     try {
       canvas.setPointerCapture(evt.pointerId);
     } catch {}
@@ -327,7 +373,6 @@ export default function MainPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // klucz: passive: false, bo inaczej preventDefault nic nie robi na touch
     const opts = { passive: false };
 
     const onPointerDown = (e) => {
@@ -362,7 +407,6 @@ export default function MainPage() {
     };
 
     const onLostPointerCapture = () => {
-      // przeglądarka potrafi zgubić capture — kończymy stroke bez "ucinanek"
       if (tool !== "pencil") return;
       commitStroke();
     };
@@ -381,6 +425,35 @@ export default function MainPage() {
       canvas.removeEventListener("lostpointercapture", onLostPointerCapture, opts);
     };
   }, [tool, currentColor, strokeWidth]);
+
+  // =========================
+  // Custom resize handles for RND (visible + bigger)
+  // =========================
+  const resizeHandleClasses = useMemo(
+    () => ({
+      topLeft: styles.rh,
+      topRight: styles.rh,
+      bottomLeft: styles.rh,
+      bottomRight: styles.rh,
+      top: styles.rh,
+      right: styles.rh,
+      bottom: styles.rh,
+      left: styles.rh,
+    }),
+    []
+  );
+
+  const isPlacing = tool.startsWith("place_");
+  const modeLabel = useMemo(() => {
+    if (tool === "select") return "Selekcja";
+    if (tool === "pencil") return "Ołówek";
+    if (tool === "place_rect_fill") return "Kliknij na obrazie, aby wstawić: Prostokąt (fill)";
+    if (tool === "place_rect_outline") return "Kliknij na obrazie, aby wstawić: Prostokąt (outline)";
+    if (tool === "place_circle_fill") return "Kliknij na obrazie, aby wstawić: Koło (fill)";
+    if (tool === "place_circle_outline") return "Kliknij na obrazie, aby wstawić: Koło (outline)";
+    if (tool === "place_text") return "Kliknij na obrazie, aby wstawić: Tekst";
+    return "";
+  }, [tool]);
 
   return (
     <main className={styles.page}>
@@ -423,6 +496,7 @@ export default function MainPage() {
                 Ołówek
               </button>
             </div>
+            <div className={styles.miniNote}>{modeLabel}</div>
           </div>
 
           <div className={styles.group}>
@@ -470,10 +544,18 @@ export default function MainPage() {
           <div className={styles.group}>
             <div className={styles.groupLabel}>Prostokąt</div>
             <div className={styles.btnRow}>
-              <button className={styles.btn} onClick={() => addRect(false)} type="button">
+              <button
+                className={tool === "place_rect_outline" ? styles.btnPrimary : styles.btn}
+                onClick={() => setTool("place_rect_outline")}
+                type="button"
+              >
                 Bez wypełnienia
               </button>
-              <button className={styles.btn} onClick={() => addRect(true)} type="button">
+              <button
+                className={tool === "place_rect_fill" ? styles.btnPrimary : styles.btn}
+                onClick={() => setTool("place_rect_fill")}
+                type="button"
+              >
                 Z wypełnieniem
               </button>
             </div>
@@ -482,10 +564,18 @@ export default function MainPage() {
           <div className={styles.group}>
             <div className={styles.groupLabel}>Koło</div>
             <div className={styles.btnRow}>
-              <button className={styles.btn} onClick={() => addCircle(false)} type="button">
+              <button
+                className={tool === "place_circle_outline" ? styles.btnPrimary : styles.btn}
+                onClick={() => setTool("place_circle_outline")}
+                type="button"
+              >
                 Bez wypełnienia
               </button>
-              <button className={styles.btn} onClick={() => addCircle(true)} type="button">
+              <button
+                className={tool === "place_circle_fill" ? styles.btnPrimary : styles.btn}
+                onClick={() => setTool("place_circle_fill")}
+                type="button"
+              >
                 Z wypełnieniem
               </button>
             </div>
@@ -501,8 +591,12 @@ export default function MainPage() {
               value={newFontSize}
               onChange={(e) => setNewFontSize(e.target.value)}
             />
-            <button className={styles.btnPrimary} onClick={addText} type="button">
-              Dodaj tekst
+            <button
+              className={tool === "place_text" ? styles.btnPrimary : styles.btn}
+              onClick={() => setTool("place_text")}
+              type="button"
+            >
+              Ustaw tekst na obrazie
             </button>
           </div>
 
@@ -571,86 +665,82 @@ export default function MainPage() {
         >
           <div className={styles.stageOverlay} />
 
-          {/* CANVAS: w pencil łapie gesty, w select ignoruje */}
+          {/* canvas always present */}
           <canvas
             ref={canvasRef}
             className={`${styles.drawCanvas} ${tool === "pencil" ? styles.canvasActive : ""}`}
             aria-hidden="true"
           />
 
-          {/* RND: zawsze nad canvasem */}
-          {elements.map((el) => {
-            const isSelected = el.id === selectedId;
+          {/* wrapper class to disable object hit-testing when pencil active */}
+          <div className={tool === "pencil" ? styles.objectsPencil : styles.objectsSelect}>
+            {elements.map((el) => {
+              const isSelected = el.id === selectedId;
+              const showEditor = isSelected; // zawsze od razu ramka+handlery po kliknięciu
 
-            return (
-              <Rnd
-                key={el.id}
-                size={{ width: el.width, height: el.height }}
-                position={{ x: el.x, y: el.y }}
-                bounds="parent"
-                disableDragging={tool !== "select"}
-                enableResizing={tool === "select"}
-                onDragStop={(e, d) => {
-                  setElements((prev) => prev.map((p) => (p.id === el.id ? { ...p, x: d.x, y: d.y } : p)));
-                }}
-                onResizeStop={(e, direction, ref, delta, position) => {
-                  const newW = parseInt(ref.style.width, 10);
-                  const newH = parseInt(ref.style.height, 10);
-                  setElements((prev) =>
-                    prev.map((p) =>
-                      p.id === el.id ? { ...p, width: newW, height: newH, x: position.x, y: position.y } : p
-                    )
-                  );
-                }}
-                onPointerDown={(e) => {
-                  // selekcja ma działać zawsze w select
-                  if (tool !== "select") return;
-                  e.stopPropagation();
-                  setSelectedId(el.id);
-                }}
-                className={isSelected ? styles.rndSelected : styles.rnd}
-              >
-                {el.type === "text" ? (
-                  <div
-                    className={styles.textBox}
-                    style={{
-                      color: el.color,
-                      fontSize: el.fontSize,
-                    }}
-                    onPointerDown={(e) => tool === "select" && e.stopPropagation()}
-                  >
-                    {el.content}
-                  </div>
-                ) : (
-                  <div
-                    className={styles.shape}
-                    style={{
-                      borderRadius: el.shape === "circle" ? "50%" : "10px",
-                      backgroundColor: el.filled ? el.color : "transparent",
-                      border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
-                    }}
-                    onPointerDown={(e) => tool === "select" && e.stopPropagation()}
-                  />
-                )}
-
-                {isSelected && tool === "select" && (
-                  <>
-                    <span className={styles.handle} style={{ top: "-7px", left: "-7px" }} />
-                    <span className={styles.handle} style={{ top: "-7px", right: "-7px" }} />
-                    <span className={styles.handle} style={{ bottom: "-7px", left: "-7px" }} />
-                    <span className={styles.handle} style={{ bottom: "-7px", right: "-7px" }} />
-                    <span className={styles.handle} style={{ top: "-8px", left: "50%", transform: "translateX(-50%)" }} />
-                    <span
-                      className={styles.handle}
-                      style={{ bottom: "-8px", left: "50%", transform: "translateX(-50%)" }}
+              return (
+                <Rnd
+                  key={el.id}
+                  size={{ width: el.width, height: el.height }}
+                  position={{ x: el.x, y: el.y }}
+                  bounds="parent"
+                  disableDragging={tool !== "select"}
+                  enableResizing={tool === "select"}
+                  resizeHandleClasses={resizeHandleClasses}
+                  onDragStop={(e, d) => {
+                    setElements((prev) => prev.map((p) => (p.id === el.id ? { ...p, x: d.x, y: d.y } : p)));
+                  }}
+                  onResizeStop={(e, direction, ref, delta, position) => {
+                    const newW = parseInt(ref.style.width, 10);
+                    const newH = parseInt(ref.style.height, 10);
+                    setElements((prev) =>
+                      prev.map((p) =>
+                        p.id === el.id ? { ...p, width: newW, height: newH, x: position.x, y: position.y } : p
+                      )
+                    );
+                  }}
+                  onPointerDown={(e) => {
+                    if (tool !== "select") return;
+                    e.stopPropagation();
+                    setSelectedId(el.id);
+                  }}
+                  className={showEditor ? styles.rndSelected : styles.rnd}
+                >
+                  {el.type === "text" ? (
+                    <div className={styles.textBox} style={{ color: el.color, fontSize: el.fontSize }}>
+                      {el.content}
+                    </div>
+                  ) : (
+                    <div
+                      className={styles.shape}
+                      style={{
+                        borderRadius: el.shape === "circle" ? "50%" : "10px",
+                        backgroundColor: el.filled ? el.color : "transparent",
+                        border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
+                      }}
                     />
-                    <span className={styles.handle} style={{ top: "50%", left: "-8px", transform: "translateY(-50%)" }} />
-                    <span className={styles.handle} style={{ top: "50%", right: "-8px", transform: "translateY(-50%)" }} />
-                  </>
-                )}
-              </Rnd>
-            );
-          })}
+                  )}
+
+                  {/* dodatkowe wizualne kółeczka (na wypadek, gdyby ktoś chciał większe niż handle) */}
+                  {showEditor && tool === "select" && (
+                    <>
+                      <span className={styles.handle} style={{ top: "-10px", left: "-10px" }} />
+                      <span className={styles.handle} style={{ top: "-10px", right: "-10px" }} />
+                      <span className={styles.handle} style={{ bottom: "-10px", left: "-10px" }} />
+                      <span className={styles.handle} style={{ bottom: "-10px", right: "-10px" }} />
+                      <span className={styles.handle} style={{ top: "-12px", left: "50%", transform: "translateX(-50%)" }} />
+                      <span className={styles.handle} style={{ bottom: "-12px", left: "50%", transform: "translateX(-50%)" }} />
+                      <span className={styles.handle} style={{ top: "50%", left: "-12px", transform: "translateY(-50%)" }} />
+                      <span className={styles.handle} style={{ top: "50%", right: "-12px", transform: "translateY(-50%)" }} />
+                    </>
+                  )}
+                </Rnd>
+              );
+            })}
+          </div>
+
+          {/* delikatny hint gdy jesteśmy w place mode */}
+          {isPlacing && <div className={styles.placeHint}>Kliknij na obrazie, aby wstawić obiekt</div>}
         </div>
       </section>
     </main>
