@@ -426,23 +426,6 @@ export default function MainPage() {
     };
   }, [tool, currentColor, strokeWidth]);
 
-  // =========================
-  // Custom resize handles for RND (visible + bigger)
-  // =========================
-  const resizeHandleClasses = useMemo(
-    () => ({
-      topLeft: styles.rh,
-      topRight: styles.rh,
-      bottomLeft: styles.rh,
-      bottomRight: styles.rh,
-      top: styles.rh,
-      right: styles.rh,
-      bottom: styles.rh,
-      left: styles.rh,
-    }),
-    []
-  );
-
   const isPlacing = tool.startsWith("place_");
   const modeLabel = useMemo(() => {
     if (tool === "select") return "Selekcja";
@@ -686,7 +669,6 @@ export default function MainPage() {
                   bounds="parent"
                   disableDragging={tool !== "select"}
                   enableResizing={tool === "select"}
-                  resizeHandleClasses={resizeHandleClasses}
                   onDragStop={(e, d) => {
                     setElements((prev) => prev.map((p) => (p.id === el.id ? { ...p, x: d.x, y: d.y } : p)));
                   }}

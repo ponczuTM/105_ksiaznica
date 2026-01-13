@@ -318,16 +318,6 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
-/* Custom resize handles for react-rnd */
-/* .rh {
-  width: 18px !important;
-  height: 18px !important;
-  border-radius: 999px !important;
-  background: rgba(0, 180, 255, 1) !important;
-  border: 2px solid rgba(0, 0, 0, 0.65) !important;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35) !important;
-} */
-
 .handle {
   position: absolute;
   width: 16px;
