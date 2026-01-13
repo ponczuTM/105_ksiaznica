@@ -1,0 +1,329 @@
+.page {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.92);
+  background: #0b0c10;
+}
+
+/* TOPBAR */
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(8px);
+}
+
+.brand {
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  opacity: 0.95;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.primaryBtn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.primaryBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pill {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  opacity: 0.9;
+  max-width: 520px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* WORKSPACE */
+.workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  overflow: hidden;
+}
+
+/* PANEL */
+.panel {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+}
+
+.panelTitle {
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  margin-bottom: 14px;
+}
+
+.group {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.groupLabel {
+  font-weight: 800;
+  font-size: 12px;
+  opacity: 0.9;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.btnRow {
+  display: flex;
+  gap: 10px;
+}
+
+.btn,
+.btnPrimary,
+.btnDanger {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  width: 100%;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.btnPrimary {
+  background: rgba(0, 180, 255, 0.14);
+  border-color: rgba(0, 180, 255, 0.25);
+}
+
+.btnPrimary:hover {
+  background: rgba(0, 180, 255, 0.20);
+}
+
+.btnDanger {
+  background: rgba(255, 0, 80, 0.14);
+  border-color: rgba(255, 0, 80, 0.25);
+}
+
+.btnDanger:hover {
+  background: rgba(255, 0, 80, 0.20);
+}
+
+.btn:disabled,
+.btnPrimary:disabled,
+.btnDanger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.input:focus {
+  border-color: rgba(0, 180, 255, 0.35);
+}
+
+.colorBtn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hiddenColor {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.selectedBox {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.18);
+  margin-bottom: 10px;
+}
+
+.selectedLine {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.muted {
+  opacity: 0.75;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 70px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.rowLabel {
+  font-size: 12px;
+  opacity: 0.85;
+  font-weight: 800;
+}
+
+.range {
+  width: 100%;
+}
+
+.rowValue {
+  font-size: 12px;
+  opacity: 0.9;
+  text-align: right;
+  font-weight: 900;
+}
+
+/* STAGE */
+.stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+
+  /* KLUCZ dla touch: brak scroll/zoom gestures */
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+.stageOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.30));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* CANVAS */
+.drawCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+
+  /* w select nie łapie gestów */
+  pointer-events: none;
+
+  /* i na mobile też: nie chcemy browser gestures na canvas */
+  touch-action: none;
+}
+
+.canvasActive {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+/* RND wrappers */
+.rnd {
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0);
+}
+
+.rndSelected {
+  z-index: 3;
+  border: 1px solid rgba(0, 180, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(0, 180, 255, 0.16);
+  border-radius: 12px;
+}
+
+/* elementy */
+.shape {
+  width: 100%;
+  height: 100%;
+  cursor: move;
+}
+
+.textBox {
+  width: 100%;
+  height: 100%;
+  cursor: move;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+  white-space: pre-wrap;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 10px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* handles */
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(0, 180, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .pill {
+    display: none;
+  }
+}

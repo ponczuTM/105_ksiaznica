@@ -1,0 +1,22 @@
+/* App ma być "ramą" 100% ekranu */
+.app {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  overflow: hidden;
+
+  /* Delikatne tło */
+  background: radial-gradient(
+      1200px 600px at 20% 10%,
+      rgba(255, 255, 255, 0.08),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 80% 30%,
+      rgba(255, 255, 255, 0.06),
+      transparent 55%
+    ),
+    rgba(12, 12, 14, 1);
+
+  color: rgba(255, 255, 255, 0.92);
+}
