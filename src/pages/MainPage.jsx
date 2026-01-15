@@ -238,6 +238,11 @@ export default function MainPage() {
     setElements((prev) => prev.map((e) => (e.id === selectedId ? { ...e, ...patch } : e)));
   };
 
+  const resetPage = () => {
+    window.location.reload();
+  };
+  
+
   // =========================
   // CANVAS: resize + redraw
   // =========================
@@ -627,6 +632,13 @@ export default function MainPage() {
                   Usuń
                 </button>
               </div>
+
+              <div className={styles.btnRow} style={{marginTop: "10px"}}>
+                <button className={styles.btnDanger} onClick={resetPage} type="button">
+                  Reset
+                </button>
+              </div>
+
             </div>
           </div>
 
