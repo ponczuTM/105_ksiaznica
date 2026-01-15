@@ -472,7 +472,7 @@ export default function MainPage() {
           <div className={styles.actions}>
             {!fsActive && fsSupported && (
               <button className={styles.primaryBtn} onClick={manualEnter} type="button">
-                Wejdź w fullscreen
+                FULLSCREEN (PEŁEN EKRAN)
               </button>
             )}
           </div>
