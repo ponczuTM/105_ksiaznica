@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
+import { HexColorPicker } from "react-colorful";
 import styles from "./MainPage.module.css";
 import bgImage from "../assets/images/image.jpg";
 
@@ -103,7 +104,10 @@ export default function MainPage() {
   // EDITOR
   // =========================
   const stageRef = useRef(null);
-  const colorInputRef = useRef(null);
+
+  // 🎯 React-colorful picker (open/close + click outside)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const colorPickerWrapRef = useRef(null);
 
   // Pencil canvas
   const canvasRef = useRef(null);
@@ -238,10 +242,63 @@ export default function MainPage() {
     setElements((prev) => prev.map((e) => (e.id === selectedId ? { ...e, ...patch } : e)));
   };
 
-  const resetPage = () => {
-    window.location.reload();
+  const clearCanvas = () => {
+    // 1) usuń obiekty (rect/circle)
+    setElements([]);
+    setSelectedId(null);
+  
+    // 2) usuń pociągnięcia ołówka
+    setStrokes([]);
+  
+    // 3) zatrzymaj ewentualne rysowanie "w locie"
+    drawingRef.current = false;
+    activePointerIdRef.current = null;
+    currentStrokeRef.current = null;
+    pendingPointRef.current = null;
+  
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+  
+    // 4) wyczyść natychmiast canvas (bez czekania na efekt setStrokes)
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      // canvas jest w CSS pixelach dzięki ctx.setTransform(dpr,...)
+      const { width, height } = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, width, height);
+    }
+  
+    // 5) opcjonalnie wróć do trybu selekcji
+    setTool("select");
   };
   
+
+  // =========================
+  // COLOR PICKER (react-colorful)
+  // =========================
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+
+    const onPointerDown = (e) => {
+      const wrap = colorPickerWrapRef.current;
+      if (!wrap) return;
+      if (wrap.contains(e.target)) return;
+      setColorPickerOpen(false);
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, { capture: true });
+    return () => document.removeEventListener("pointerdown", onPointerDown, { capture: true });
+  }, [colorPickerOpen]);
+
+  const applyColor = useCallback(
+    (hex) => {
+      setCurrentColor(hex);
+      if (selectedId) updateSelected({ color: hex });
+    },
+    [selectedId]
+  );
 
   // =========================
   // CANVAS: resize + redraw
@@ -275,7 +332,6 @@ export default function MainPage() {
     const stage = stageRef.current;
     if (!canvas || !stage) return;
 
-    // 🎯 Ograniczamy DPR do 2 max dla dużych ekranów
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const { width, height } = stage.getBoundingClientRect();
 
@@ -284,9 +340,9 @@ export default function MainPage() {
     canvas.style.width = `${Math.floor(width)}px`;
     canvas.style.height = `${Math.floor(height)}px`;
 
-    const ctx = canvas.getContext("2d", { 
+    const ctx = canvas.getContext("2d", {
       alpha: true,
-      desynchronized: true // 🎯 Optymalizacja dla touch
+      desynchronized: true,
     });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -344,7 +400,6 @@ export default function MainPage() {
     } catch {}
   };
 
-  // 🎯 ZMIENIONO: zamiast bezpośrednio rysować, zapisujemy punkt i planujemy RAF
   const extendStroke = (evt) => {
     if (!drawingRef.current) return;
     if (activePointerIdRef.current !== evt.pointerId) return;
@@ -355,10 +410,8 @@ export default function MainPage() {
     const p = getLocalPoint(evt);
     stroke.points.push(p);
 
-    // Zapisz ostatni punkt do przerysowania
     pendingPointRef.current = p;
 
-    // Jeśli RAF już nie jest zaplanowany, zaplanuj
     if (rafIdRef.current === null) {
       rafIdRef.current = requestAnimationFrame(() => {
         rafIdRef.current = null;
@@ -368,7 +421,7 @@ export default function MainPage() {
 
         const ctx = canvas.getContext("2d");
         const point = pendingPointRef.current;
-        
+
         if (point) {
           ctx.lineTo(point.x, point.y);
           ctx.stroke();
@@ -383,7 +436,6 @@ export default function MainPage() {
     drawingRef.current = false;
     activePointerIdRef.current = null;
 
-    // 🎯 Anuluj pending RAF jeśli istnieje
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
@@ -451,8 +503,7 @@ export default function MainPage() {
       canvas.removeEventListener("pointerup", onPointerUp, opts);
       canvas.removeEventListener("pointercancel", onPointerCancel, opts);
       canvas.removeEventListener("lostpointercapture", onLostPointerCapture, opts);
-      
-      // 🎯 Cleanup RAF
+
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
@@ -491,8 +542,6 @@ export default function MainPage() {
           aria-hidden={!panelOpen}
         >
           <div className={styles.panel}>
-            <div className={styles.panelTitle}>Narzędzia</div>
-
             <div className={styles.group}>
               <div className={styles.groupLabel}>Tryb</div>
               <div className={styles.btnRow}>
@@ -520,26 +569,27 @@ export default function MainPage() {
             <div className={styles.group}>
               <div className={styles.groupLabel}>Kolor</div>
 
-              <button
-                className={styles.colorBtn}
-                style={{ background: currentColor }}
-                onClick={() => colorInputRef.current?.click()}
-                type="button"
-              >
-                Wybierz kolor
-              </button>
+              {/* 🎯 react-colorful picker */}
+              <div ref={colorPickerWrapRef} className={styles.colorPickerWrap}>
+                <button
+                  className={styles.colorBtn}
+                  style={{ background: currentColor }}
+                  onClick={() => setColorPickerOpen((v) => !v)}
+                  type="button"
+                >
+                  {colorPickerOpen ? "Zamknij" : "Wybierz kolor"}
+                </button>
 
-              <input
-                ref={colorInputRef}
-                className={styles.hiddenColor}
-                type="color"
-                value={currentColor}
-                onChange={(e) => {
-                  const c = e.target.value;
-                  setCurrentColor(c);
-                  if (selectedId) updateSelected({ color: c });
-                }}
-              />
+                {colorPickerOpen && (
+                  <div className={styles.colorPopover} role="dialog" aria-label="Wybór koloru">
+                    <HexColorPicker color={currentColor} onChange={applyColor} />
+                    <div className={styles.colorMeta}>
+                      <div className={styles.colorSwatch} style={{ background: currentColor }} />
+                      <span className={styles.colorValue}>{currentColor.toUpperCase()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className={styles.row}>
                 <span className={styles.rowLabel}>Grubość:</span>
@@ -633,12 +683,11 @@ export default function MainPage() {
                 </button>
               </div>
 
-              <div className={styles.btnRow} style={{marginTop: "10px"}}>
-                <button className={styles.btnDanger} onClick={resetPage} type="button">
+              <div className={styles.btnRow} style={{ marginTop: "10px" }}>
+                <button className={styles.btnDanger} onClick={clearCanvas} type="button">
                   Reset
                 </button>
               </div>
-
             </div>
           </div>
 
@@ -654,14 +703,9 @@ export default function MainPage() {
           </button>
         </aside>
 
-        {/* 🎯 STAGE: obraz jako <img> zamiast background-image w CSS */}
-        <div
-          className={styles.stage}
-          ref={stageRef}
-          onPointerDownCapture={onStagePointerDownCapture}
-        >
+        <div className={styles.stage} ref={stageRef} onPointerDownCapture={onStagePointerDownCapture}>
           <img src={bgImage} alt="" className={styles.bgImage} />
-          
+
           <div className={styles.stageOverlay} />
 
           <canvas
