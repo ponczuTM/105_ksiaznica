@@ -28,7 +28,6 @@ function isFullscreenNow() {
 const DEFAULT_SIZE = {
   rect: { w: 180, h: 120 },
   circle: { w: 150, h: 150 },
-  text: { w: 340, h: 70 },
 };
 
 export default function MainPage() {
@@ -63,18 +62,45 @@ export default function MainPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const statusText = useMemo(() => {
-    if (!fsSupported) return "Twoja przeglądarka nie wspiera Fullscreen API.";
-    if (fsActive) return "Fullscreen aktywny. Wyjście: Esc / Spacja.";
-    return "Kliknij przycisk, żeby wejść w fullscreen.";
-  }, [fsActive, fsSupported]);
-
   const manualEnter = async () => {
     if (!fsSupported) return;
     try {
       await requestFullscreen();
+      // topbar schowa się automatycznie, bo fsActive przełączy się przez fullscreenchange
     } catch {}
   };
+
+  // =========================
+  // SLIDE PANEL
+  // =========================
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelWrapRef = useRef(null);
+  const panelToggleRef = useRef(null);
+
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+
+  useEffect(() => {
+    if (!panelOpen) return;
+
+    const onPointerDown = (e) => {
+      const wrap = panelWrapRef.current;
+      const toggle = panelToggleRef.current;
+
+      if (!wrap) return;
+
+      const target = e.target;
+
+      // klik w toggle albo w panel -> nie zamykaj
+      if (toggle && toggle.contains(target)) return;
+      if (wrap.contains(target)) return;
+
+      // klik poza -> zamknij
+      closePanel();
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, { capture: true });
+    return () => document.removeEventListener("pointerdown", onPointerDown, { capture: true });
+  }, [panelOpen, closePanel]);
 
   // =========================
   // EDITOR
@@ -92,14 +118,11 @@ export default function MainPage() {
   const [selectedId, setSelectedId] = useState(null);
 
   // Tryby:
-  // select | pencil | place_rect_fill | place_rect_outline | place_circle_fill | place_circle_outline | place_text
+  // select | pencil | place_rect_fill | place_rect_outline | place_circle_fill | place_circle_outline
   const [tool, setTool] = useState("select");
 
   const [currentColor, setCurrentColor] = useState("#ff2d55");
   const [strokeWidth, setStrokeWidth] = useState(5);
-
-  const [newText, setNewText] = useState("Tekst");
-  const [newFontSize, setNewFontSize] = useState(32);
 
   const [strokes, setStrokes] = useState([]); // {id,color,width,points:[{x,y}]}
 
@@ -134,9 +157,8 @@ export default function MainPage() {
 
     const isRect = tool === "place_rect_fill" || tool === "place_rect_outline";
     const isCircle = tool === "place_circle_fill" || tool === "place_circle_outline";
-    const isText = tool === "place_text";
 
-    if (!isRect && !isCircle && !isText) return;
+    if (!isRect && !isCircle) return;
 
     if (isRect) {
       const { w, h } = DEFAULT_SIZE.rect;
@@ -181,34 +203,13 @@ export default function MainPage() {
       setTool("select");
       return;
     }
-
-    if (isText) {
-      const { w, h } = DEFAULT_SIZE.text;
-      const pos = clampToStage(x0 - w / 2, y0 - h / 2, w, h);
-      const el = {
-        id,
-        type: "text",
-        content: newText.trim() ? newText : "Tekst",
-        color: currentColor,
-        fontSize: Math.max(1, Number(newFontSize) || 32),
-        width: w,
-        height: h,
-        x: pos.x,
-        y: pos.y,
-      };
-      setElements((prev) => [...prev, el]);
-      setSelectedId(id);
-      setTool("select");
-    }
   };
 
   // stage click: selekcja/odznaczanie + place tool
   const onStagePointerDownCapture = (e) => {
     // jeśli jesteśmy w trybie "place_*" i dotkniemy stage -> tworzymy element
     if (tool.startsWith("place_")) {
-      // ignoruj klik w panel/scroll itp. tylko stage
       if (!stageRef.current) return;
-      // ważne: zawsze tworzymy, nawet gdy targetem jest child (np overlay/canvas)
       e.preventDefault();
       createElementAt(e.clientX, e.clientY);
       return;
@@ -434,212 +435,190 @@ export default function MainPage() {
     if (tool === "place_rect_outline") return "Kliknij na obrazie, aby wstawić: Prostokąt (outline)";
     if (tool === "place_circle_fill") return "Kliknij na obrazie, aby wstawić: Koło (fill)";
     if (tool === "place_circle_outline") return "Kliknij na obrazie, aby wstawić: Koło (outline)";
-    if (tool === "place_text") return "Kliknij na obrazie, aby wstawić: Tekst";
     return "";
   }, [tool]);
 
   return (
     <main className={styles.page}>
-      <header className={styles.topbar}>
-        <div className={styles.brand}>MainPage</div>
-
-        <div className={styles.actions}>
-          {!fsActive && fsSupported && (
-            <button className={styles.primaryBtn} onClick={manualEnter}>
-              Wejdź w fullscreen
-            </button>
-          )}
-          <span className={styles.pill}>{statusText}</span>
-        </div>
-      </header>
+      {/* TOPBAR: ukryty w fullscreen */}
+      {!fsActive && (
+        <header className={styles.topbar}>
+          <div className={styles.actions}>
+            {!fsActive && fsSupported && (
+              <button className={styles.primaryBtn} onClick={manualEnter} type="button">
+                Wejdź w fullscreen
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       <section className={styles.workspace}>
-        {/* PANEL */}
-        <aside className={styles.panel}>
-          <div className={styles.panelTitle}>Narzędzia</div>
+        {/* PANEL WRAP (panel + strzałka) */}
+        <aside
+          ref={panelWrapRef}
+          className={`${styles.panelWrap} ${panelOpen ? styles.panelWrapOpen : styles.panelWrapClosed}`}
+          aria-hidden={!panelOpen}
+        >
+          <div className={styles.panel}>
+            <div className={styles.panelTitle}>Narzędzia</div>
 
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Tryb</div>
-            <div className={styles.btnRow}>
-              <button
-                className={tool === "select" ? styles.btnPrimary : styles.btn}
-                onClick={() => setTool("select")}
-                type="button"
-              >
-                Selekcja
-              </button>
-              <button
-                className={tool === "pencil" ? styles.btnPrimary : styles.btn}
-                onClick={() => {
-                  setSelectedId(null);
-                  setTool("pencil");
-                }}
-                type="button"
-              >
-                Ołówek
-              </button>
-            </div>
-            <div className={styles.miniNote}>{modeLabel}</div>
-          </div>
-
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Kolor</div>
-
-            <button
-              className={styles.colorBtn}
-              style={{ background: currentColor }}
-              onClick={() => colorInputRef.current?.click()}
-              type="button"
-            >
-              Wybierz kolor
-            </button>
-
-            <input
-              ref={colorInputRef}
-              className={styles.hiddenColor}
-              type="color"
-              value={currentColor}
-              onChange={(e) => {
-                const c = e.target.value;
-                setCurrentColor(c);
-                if (selectedId) updateSelected({ color: c });
-              }}
-            />
-
-            <div className={styles.row}>
-              <span className={styles.rowLabel}>Grubość:</span>
-              <input
-                className={styles.range}
-                type="range"
-                min={1}
-                max={24}
-                value={strokeWidth}
-                onChange={(e) => {
-                  const v = Number(e.target.value) || 1;
-                  setStrokeWidth(v);
-                  if (selectedId) updateSelected({ strokeWidth: v });
-                }}
-              />
-              <span className={styles.rowValue}>{strokeWidth}</span>
-            </div>
-          </div>
-
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Prostokąt</div>
-            <div className={styles.btnRow}>
-              <button
-                className={tool === "place_rect_outline" ? styles.btnPrimary : styles.btn}
-                onClick={() => setTool("place_rect_outline")}
-                type="button"
-              >
-                Bez wypełnienia
-              </button>
-              <button
-                className={tool === "place_rect_fill" ? styles.btnPrimary : styles.btn}
-                onClick={() => setTool("place_rect_fill")}
-                type="button"
-              >
-                Z wypełnieniem
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Koło</div>
-            <div className={styles.btnRow}>
-              <button
-                className={tool === "place_circle_outline" ? styles.btnPrimary : styles.btn}
-                onClick={() => setTool("place_circle_outline")}
-                type="button"
-              >
-                Bez wypełnienia
-              </button>
-              <button
-                className={tool === "place_circle_fill" ? styles.btnPrimary : styles.btn}
-                onClick={() => setTool("place_circle_fill")}
-                type="button"
-              >
-                Z wypełnieniem
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Tekst</div>
-            <input className={styles.input} value={newText} onChange={(e) => setNewText(e.target.value)} />
-            <input
-              className={styles.input}
-              type="number"
-              min={1}
-              value={newFontSize}
-              onChange={(e) => setNewFontSize(e.target.value)}
-            />
-            <button
-              className={tool === "place_text" ? styles.btnPrimary : styles.btn}
-              onClick={() => setTool("place_text")}
-              type="button"
-            >
-              Ustaw tekst na obrazie
-            </button>
-          </div>
-
-          <div className={styles.group}>
-            <div className={styles.groupLabel}>Zaznaczenie</div>
-
-            <div className={styles.selectedBox}>
-              {selectedEl ? (
-                <>
-                  <div className={styles.selectedLine}>
-                    <span className={styles.muted}>Typ:</span>{" "}
-                    {selectedEl.type === "text"
-                      ? "Tekst"
-                      : selectedEl.shape === "circle"
-                      ? selectedEl.filled
-                        ? "Koło (fill)"
-                        : "Koło (outline)"
-                      : selectedEl.filled
-                      ? "Prostokąt (fill)"
-                      : "Prostokąt (outline)"}
-                  </div>
-                  <div className={styles.selectedLine}>
-                    <span className={styles.muted}>ID:</span> {selectedEl.id}
-                  </div>
-                </>
-              ) : (
-                <div className={styles.muted}>Brak zaznaczenia</div>
-              )}
-            </div>
-
-            <div className={styles.btnRow}>
-              <button className={styles.btn} onClick={duplicateSelected} disabled={!selectedEl} type="button">
-                Duplikuj
-              </button>
-              <button className={styles.btnDanger} onClick={deleteSelected} disabled={!selectedEl} type="button">
-                Usuń
-              </button>
-            </div>
-          </div>
-
-          {selectedEl?.type === "text" && (
             <div className={styles.group}>
-              <div className={styles.groupLabel}>Edycja tekstu</div>
-              <input
-                className={styles.input}
-                value={selectedEl.content}
-                onChange={(e) => updateSelected({ content: e.target.value })}
-              />
-              <input
-                className={styles.input}
-                type="number"
-                min={1}
-                value={selectedEl.fontSize}
-                onChange={(e) => updateSelected({ fontSize: Math.max(1, Number(e.target.value) || 1) })}
-              />
+              <div className={styles.groupLabel}>Tryb</div>
+              <div className={styles.btnRow}>
+                <button
+                  className={tool === "select" ? styles.btnPrimary : styles.btn}
+                  onClick={() => setTool("select")}
+                  type="button"
+                >
+                  Selekcja
+                </button>
+                <button
+                  className={tool === "pencil" ? styles.btnPrimary : styles.btn}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setTool("pencil");
+                  }}
+                  type="button"
+                >
+                  Ołówek
+                </button>
+              </div>
+              <div className={styles.miniNote}>{modeLabel}</div>
             </div>
-          )}
+
+            <div className={styles.group}>
+              <div className={styles.groupLabel}>Kolor</div>
+
+              <button
+                className={styles.colorBtn}
+                style={{ background: currentColor }}
+                onClick={() => colorInputRef.current?.click()}
+                type="button"
+              >
+                Wybierz kolor
+              </button>
+
+              <input
+                ref={colorInputRef}
+                className={styles.hiddenColor}
+                type="color"
+                value={currentColor}
+                onChange={(e) => {
+                  const c = e.target.value;
+                  setCurrentColor(c);
+                  if (selectedId) updateSelected({ color: c });
+                }}
+              />
+
+              <div className={styles.row}>
+                <span className={styles.rowLabel}>Grubość:</span>
+                <input
+                  className={styles.range}
+                  type="range"
+                  min={1}
+                  max={24}
+                  value={strokeWidth}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) || 1;
+                    setStrokeWidth(v);
+                    if (selectedId) updateSelected({ strokeWidth: v });
+                  }}
+                />
+                <span className={styles.rowValue}>{strokeWidth}</span>
+              </div>
+            </div>
+
+            <div className={styles.group}>
+              <div className={styles.groupLabel}>Prostokąt</div>
+              <div className={styles.btnRow}>
+                <button
+                  className={tool === "place_rect_outline" ? styles.btnPrimary : styles.btn}
+                  onClick={() => setTool("place_rect_outline")}
+                  type="button"
+                >
+                  Bez wypełnienia
+                </button>
+                <button
+                  className={tool === "place_rect_fill" ? styles.btnPrimary : styles.btn}
+                  onClick={() => setTool("place_rect_fill")}
+                  type="button"
+                >
+                  Z wypełnieniem
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.group}>
+              <div className={styles.groupLabel}>Koło</div>
+              <div className={styles.btnRow}>
+                <button
+                  className={tool === "place_circle_outline" ? styles.btnPrimary : styles.btn}
+                  onClick={() => setTool("place_circle_outline")}
+                  type="button"
+                >
+                  Bez wypełnienia
+                </button>
+                <button
+                  className={tool === "place_circle_fill" ? styles.btnPrimary : styles.btn}
+                  onClick={() => setTool("place_circle_fill")}
+                  type="button"
+                >
+                  Z wypełnieniem
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.group}>
+              <div className={styles.groupLabel}>Zaznaczenie</div>
+
+              <div className={styles.selectedBox}>
+                {selectedEl ? (
+                  <>
+                    <div className={styles.selectedLine}>
+                      <span className={styles.muted}>Typ:</span>{" "}
+                      {selectedEl.shape === "circle"
+                        ? selectedEl.filled
+                          ? "Koło (fill)"
+                          : "Koło (outline)"
+                        : selectedEl.filled
+                        ? "Prostokąt (fill)"
+                        : "Prostokąt (outline)"}
+                    </div>
+                    <div className={styles.selectedLine}>
+                      <span className={styles.muted}>ID:</span> {selectedEl.id}
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.muted}>Brak zaznaczenia</div>
+                )}
+              </div>
+
+              <div className={styles.btnRow}>
+                <button className={styles.btn} onClick={duplicateSelected} disabled={!selectedEl} type="button">
+                  Duplikuj
+                </button>
+                <button className={styles.btnDanger} onClick={deleteSelected} disabled={!selectedEl} type="button">
+                  Usuń
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* STRZAŁKA / TOGGLE */}
+          <button
+            ref={panelToggleRef}
+            className={styles.panelToggle}
+            onClick={() => setPanelOpen((v) => !v)}
+            type="button"
+            aria-label={panelOpen ? "Zamknij panel" : "Otwórz panel"}
+            title={panelOpen ? "Zamknij panel" : "Otwórz panel"}
+          >
+            {panelOpen ? "←" : "→"}
+          </button>
         </aside>
 
-        {/* STAGE */}
+        {/* STAGE (full screen) */}
         <div
           className={styles.stage}
           ref={stageRef}
@@ -648,18 +627,18 @@ export default function MainPage() {
         >
           <div className={styles.stageOverlay} />
 
-          {/* canvas always present */}
+          {/* canvas zawsze obecny, ale TERAZ NAD obiektami */}
           <canvas
             ref={canvasRef}
             className={`${styles.drawCanvas} ${tool === "pencil" ? styles.canvasActive : ""}`}
             aria-hidden="true"
           />
 
-          {/* wrapper class to disable object hit-testing when pencil active */}
+          {/* obiekty POD canvasem */}
           <div className={tool === "pencil" ? styles.objectsPencil : styles.objectsSelect}>
             {elements.map((el) => {
               const isSelected = el.id === selectedId;
-              const showEditor = isSelected; // zawsze od razu ramka+handlery po kliknięciu
+              const showEditor = isSelected;
 
               return (
                 <Rnd
@@ -688,32 +667,37 @@ export default function MainPage() {
                   }}
                   className={showEditor ? styles.rndSelected : styles.rnd}
                 >
-                  {el.type === "text" ? (
-                    <div className={styles.textBox} style={{ color: el.color, fontSize: el.fontSize }}>
-                      {el.content}
-                    </div>
-                  ) : (
-                    <div
-                      className={styles.shape}
-                      style={{
-                        borderRadius: el.shape === "circle" ? "50%" : "10px",
-                        backgroundColor: el.filled ? el.color : "transparent",
-                        border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
-                      }}
-                    />
-                  )}
+                  <div
+                    className={styles.shape}
+                    style={{
+                      borderRadius: el.shape === "circle" ? "50%" : "10px",
+                      backgroundColor: el.filled ? el.color : "transparent",
+                      border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
+                    }}
+                  />
 
-                  {/* dodatkowe wizualne kółeczka (na wypadek, gdyby ktoś chciał większe niż handle) */}
                   {showEditor && tool === "select" && (
                     <>
                       <span className={styles.handle} style={{ top: "-10px", left: "-10px" }} />
                       <span className={styles.handle} style={{ top: "-10px", right: "-10px" }} />
                       <span className={styles.handle} style={{ bottom: "-10px", left: "-10px" }} />
                       <span className={styles.handle} style={{ bottom: "-10px", right: "-10px" }} />
-                      <span className={styles.handle} style={{ top: "-12px", left: "50%", transform: "translateX(-50%)" }} />
-                      <span className={styles.handle} style={{ bottom: "-12px", left: "50%", transform: "translateX(-50%)" }} />
-                      <span className={styles.handle} style={{ top: "50%", left: "-12px", transform: "translateY(-50%)" }} />
-                      <span className={styles.handle} style={{ top: "50%", right: "-12px", transform: "translateY(-50%)" }} />
+                      <span
+                        className={styles.handle}
+                        style={{ top: "-12px", left: "50%", transform: "translateX(-50%)" }}
+                      />
+                      <span
+                        className={styles.handle}
+                        style={{ bottom: "-12px", left: "50%", transform: "translateX(-50%)" }}
+                      />
+                      <span
+                        className={styles.handle}
+                        style={{ top: "50%", left: "-12px", transform: "translateY(-50%)" }}
+                      />
+                      <span
+                        className={styles.handle}
+                        style={{ top: "50%", right: "-12px", transform: "translateY(-50%)" }}
+                      />
                     </>
                   )}
                 </Rnd>
