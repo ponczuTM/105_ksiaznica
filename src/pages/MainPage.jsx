@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import styles from "./MainPage.module.css";
-import bgImage from "../assets/images/image.png";
+import bgImage from "../assets/images/image.jpg";
 
 function canFullscreen() {
   const el = document.documentElement;
