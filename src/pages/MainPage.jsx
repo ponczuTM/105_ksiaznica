@@ -66,7 +66,6 @@ export default function MainPage() {
     if (!fsSupported) return;
     try {
       await requestFullscreen();
-      // topbar schowa się automatycznie, bo fsActive przełączy się przez fullscreenchange
     } catch {}
   };
 
@@ -90,11 +89,9 @@ export default function MainPage() {
 
       const target = e.target;
 
-      // klik w toggle albo w panel -> nie zamykaj
       if (toggle && toggle.contains(target)) return;
       if (wrap.contains(target)) return;
 
-      // klik poza -> zamknij
       closePanel();
     };
 
@@ -114,17 +111,19 @@ export default function MainPage() {
   const activePointerIdRef = useRef(null);
   const currentStrokeRef = useRef(null);
 
+  // 🎯 RAF batching refs
+  const rafIdRef = useRef(null);
+  const pendingPointRef = useRef(null);
+
   const [elements, setElements] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
 
-  // Tryby:
-  // select | pencil | place_rect_fill | place_rect_outline | place_circle_fill | place_circle_outline
   const [tool, setTool] = useState("select");
 
   const [currentColor, setCurrentColor] = useState("#ff2d55");
   const [strokeWidth, setStrokeWidth] = useState(5);
 
-  const [strokes, setStrokes] = useState([]); // {id,color,width,points:[{x,y}]}
+  const [strokes, setStrokes] = useState([]);
 
   const selectedEl = useMemo(
     () => elements.find((e) => e.id === selectedId) || null,
@@ -146,7 +145,7 @@ export default function MainPage() {
   };
 
   // =========================
-  // PLACE TOOL: tworzenie obiektu dopiero po kliknięciu na stage
+  // PLACE TOOL
   // =========================
   const createElementAt = (clientX, clientY) => {
     const { left, top } = getStageRect();
@@ -205,9 +204,7 @@ export default function MainPage() {
     }
   };
 
-  // stage click: selekcja/odznaczanie + place tool
   const onStagePointerDownCapture = (e) => {
-    // jeśli jesteśmy w trybie "place_*" i dotkniemy stage -> tworzymy element
     if (tool.startsWith("place_")) {
       if (!stageRef.current) return;
       e.preventDefault();
@@ -215,7 +212,6 @@ export default function MainPage() {
       return;
     }
 
-    // selekcja: klik w tło odznacza
     if (tool === "select") {
       if (e.target === stageRef.current) setSelectedId(null);
     }
@@ -274,7 +270,8 @@ export default function MainPage() {
     const stage = stageRef.current;
     if (!canvas || !stage) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    // 🎯 Ograniczamy DPR do 2 max dla dużych ekranów
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const { width, height } = stage.getBoundingClientRect();
 
     canvas.width = Math.floor(width * dpr);
@@ -282,7 +279,10 @@ export default function MainPage() {
     canvas.style.width = `${Math.floor(width)}px`;
     canvas.style.height = `${Math.floor(height)}px`;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { 
+      alpha: true,
+      desynchronized: true // 🎯 Optymalizacja dla touch
+    });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     redrawAllStrokes(ctx);
@@ -302,8 +302,7 @@ export default function MainPage() {
   }, [strokes, redrawAllStrokes]);
 
   // =========================
-  // PENCIL: always draw (also when starting on objects)
-  // In pencil mode objects are pointer-events: none (CSS class)
+  // PENCIL: RAF BATCHING 🎯
   // =========================
   const getLocalPoint = (evt) => {
     const { left, top } = getStageRect();
@@ -340,6 +339,7 @@ export default function MainPage() {
     } catch {}
   };
 
+  // 🎯 ZMIENIONO: zamiast bezpośrednio rysować, zapisujemy punkt i planujemy RAF
   const extendStroke = (evt) => {
     if (!drawingRef.current) return;
     if (activePointerIdRef.current !== evt.pointerId) return;
@@ -350,11 +350,26 @@ export default function MainPage() {
     const p = getLocalPoint(evt);
     stroke.points.push(p);
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
+    // Zapisz ostatni punkt do przerysowania
+    pendingPointRef.current = p;
+
+    // Jeśli RAF już nie jest zaplanowany, zaplanuj
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+
+        const canvas = canvasRef.current;
+        if (!canvas || !drawingRef.current) return;
+
+        const ctx = canvas.getContext("2d");
+        const point = pendingPointRef.current;
+        
+        if (point) {
+          ctx.lineTo(point.x, point.y);
+          ctx.stroke();
+        }
+      });
+    }
   };
 
   const commitStroke = () => {
@@ -362,6 +377,13 @@ export default function MainPage() {
 
     drawingRef.current = false;
     activePointerIdRef.current = null;
+
+    // 🎯 Anuluj pending RAF jeśli istnieje
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    pendingPointRef.current = null;
 
     const stroke = currentStrokeRef.current;
     currentStrokeRef.current = null;
@@ -424,6 +446,11 @@ export default function MainPage() {
       canvas.removeEventListener("pointerup", onPointerUp, opts);
       canvas.removeEventListener("pointercancel", onPointerCancel, opts);
       canvas.removeEventListener("lostpointercapture", onLostPointerCapture, opts);
+      
+      // 🎯 Cleanup RAF
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
     };
   }, [tool, currentColor, strokeWidth]);
 
@@ -440,7 +467,6 @@ export default function MainPage() {
 
   return (
     <main className={styles.page}>
-      {/* TOPBAR: ukryty w fullscreen */}
       {!fsActive && (
         <header className={styles.topbar}>
           <div className={styles.actions}>
@@ -454,7 +480,6 @@ export default function MainPage() {
       )}
 
       <section className={styles.workspace}>
-        {/* PANEL WRAP (panel + strzałka) */}
         <aside
           ref={panelWrapRef}
           className={`${styles.panelWrap} ${panelOpen ? styles.panelWrapOpen : styles.panelWrapClosed}`}
@@ -605,7 +630,6 @@ export default function MainPage() {
             </div>
           </div>
 
-          {/* STRZAŁKA / TOGGLE */}
           <button
             ref={panelToggleRef}
             className={styles.panelToggle}
@@ -618,23 +642,22 @@ export default function MainPage() {
           </button>
         </aside>
 
-        {/* STAGE (full screen) */}
+        {/* 🎯 STAGE: obraz jako <img> zamiast background-image w CSS */}
         <div
           className={styles.stage}
           ref={stageRef}
           onPointerDownCapture={onStagePointerDownCapture}
-          style={{ backgroundImage: `url(${bgImage})` }}
         >
+          <img src={bgImage} alt="" className={styles.bgImage} />
+          
           <div className={styles.stageOverlay} />
 
-          {/* canvas zawsze obecny, ale TERAZ NAD obiektami */}
           <canvas
             ref={canvasRef}
             className={`${styles.drawCanvas} ${tool === "pencil" ? styles.canvasActive : ""}`}
             aria-hidden="true"
           />
 
-          {/* obiekty POD canvasem */}
           <div className={tool === "pencil" ? styles.objectsPencil : styles.objectsSelect}>
             {elements.map((el) => {
               const isSelected = el.id === selectedId;
@@ -705,7 +728,6 @@ export default function MainPage() {
             })}
           </div>
 
-          {/* delikatny hint gdy jesteśmy w place mode */}
           {isPlacing && <div className={styles.placeHint}>Kliknij na obrazie, aby wstawić obiekt</div>}
         </div>
       </section>

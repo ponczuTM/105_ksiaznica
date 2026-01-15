@@ -404,3 +404,41 @@
     transform: translateX(-320px);
   }
 }
+
+
+/* 🎯 DODAJ to na początku pliku (lub przed .stage) */
+
+/* Obraz jako statyczne tło - renderowane GPU, nie każdą klatkę */
+.bgImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  /* 🎯 GPU acceleration */
+  transform: translateZ(0);
+  will-change: auto;
+}
+
+/* 🎯 ZMODYFIKUJ .stage - usuń background-image */
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+
+  /* 🎯 USUŃ te linie:
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  */
+
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+/* Reszta CSS pozostaje bez zmian */
