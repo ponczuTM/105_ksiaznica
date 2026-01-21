@@ -31,6 +31,10 @@ const DEFAULT_SIZE = {
   circle: { w: 150, h: 150 },
 };
 
+// Stałe dla zoomu
+const MIN_ZOOM = 1;  // 20% - minimalne oddalenie
+const MAX_ZOOM = 5.0;  // 500% - maksymalne przybliżenie
+
 export default function MainPage() {
   // =========================
   // FULLSCREEN
@@ -104,6 +108,16 @@ export default function MainPage() {
   // EDITOR
   // =========================
   const stageRef = useRef(null);
+  const containerRef = useRef(null); // Nowy ref dla kontenera z transformacją
+
+  // 🎯 ZOOM i PAN
+  const [zoom, setZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const lastDistanceRef = useRef(0);
+  const lastCenterRef = useRef({ x: 0, y: 0 });
+  const activeTouchesRef = useRef([]);
 
   // 🎯 React-colorful picker (open/close + click outside)
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -134,6 +148,269 @@ export default function MainPage() {
     [elements, selectedId]
   );
 
+  // =========================
+  // ZOOM i PAN LOGIC z ograniczeniami
+  // =========================
+  const clampZoom = (value) => Math.max(MIN_ZOOM, Math.min(value, MAX_ZOOM));
+  
+  // Oblicz maksymalne przesunięcie na podstawie zoomu i rozmiarów
+  const calculateMaxPan = useCallback(() => {
+    if (!containerRef.current || !stageRef.current) return { maxX: 0, maxY: 0 };
+    
+    const container = containerRef.current;
+    const stage = stageRef.current;
+    
+    const containerRect = container.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    
+    // Gdy zoom < 1 (oddalenie), obraz jest mniejszy niż kontener
+    // Ograniczamy przesunięcie, aby obraz nie "uciekał" z widoku
+    if (zoom < 1) {
+      const scaledWidth = stageRect.width * zoom;
+      const scaledHeight = stageRect.height * zoom;
+      
+      // Gdy obraz jest mniejszy od kontenera, ograniczamy przesunięcie
+      // aby centrować obraz
+      const horizontalMargin = (containerRect.width - scaledWidth) / 2;
+      const verticalMargin = (containerRect.height - scaledHeight) / 2;
+      
+      return {
+        maxX: Math.max(0, horizontalMargin),
+        maxY: Math.max(0, verticalMargin)
+      };
+    } else {
+      // Gdy zoom >= 1 (przybliżenie), obraz jest większy niż kontener
+      const scaledWidth = stageRect.width * zoom;
+      const scaledHeight = stageRect.height * zoom;
+      
+      // Maksymalne przesunięcie to różnica między przeskalowanym obrazem a kontenerem
+      const maxX = Math.max(0, (scaledWidth - containerRect.width) / 2);
+      const maxY = Math.max(0, (scaledHeight - containerRect.height) / 2);
+      
+      return { maxX, maxY };
+    }
+  }, [zoom]);
+
+  const clampPan = useCallback((x, y) => {
+    const { maxX, maxY } = calculateMaxPan();
+    
+    // Dla zoom < 1, obraz jest wycentrowany - przesunięcie powinno być ograniczone
+    if (zoom < 1) {
+      return {
+        x: Math.max(-maxX, Math.min(maxX, x)),
+        y: Math.max(-maxY, Math.min(maxY, y))
+      };
+    } else {
+      // Dla zoom >= 1, standardowe ograniczenia
+      return {
+        x: Math.max(-maxX, Math.min(maxX, x)),
+        y: Math.max(-maxY, Math.min(maxY, y))
+      };
+    }
+  }, [zoom, calculateMaxPan]);
+
+  // Funkcja do aktualizacji zoomu z automatycznym centrowaniem przy oddalaniu
+  const updateZoomAndPan = useCallback((newZoom, centerX, centerY) => {
+    if (!containerRef.current || !stageRef.current) return;
+    
+    const container = containerRef.current;
+    const stage = stageRef.current;
+    
+    const containerRect = container.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    
+    const clampedZoom = clampZoom(newZoom);
+    
+    // Gdy oddalamy (zoom zmniejsza się) i osiągamy minimum, wycentruj obraz
+    if (clampedZoom === MIN_ZOOM && clampedZoom < zoom) {
+      const newOffset = { x: 0, y: 0 };
+      setZoom(clampedZoom);
+      setPanOffset(newOffset);
+      return;
+    }
+    
+    // Gdy przybliżamy (zoom zwiększa się) z centrum
+    if (centerX !== undefined && centerY !== undefined) {
+      const zoomRatio = clampedZoom / zoom;
+      
+      const newOffset = {
+        x: centerX - (centerX - panOffset.x) * zoomRatio,
+        y: centerY - (centerY - panOffset.y) * zoomRatio
+      };
+      
+      const clamped = clampPan(newOffset.x, newOffset.y);
+      setZoom(clampedZoom);
+      setPanOffset(clamped);
+    } else {
+      // Bez centrum - po prostu ustaw nowy zoom i popraw pan
+      const clamped = clampPan(panOffset.x, panOffset.y);
+      setZoom(clampedZoom);
+      setPanOffset(clamped);
+    }
+  }, [zoom, panOffset, clampPan]);
+
+  const handleTouchStart = useCallback((e) => {
+    if (tool !== "gestures") return;
+    
+    e.preventDefault();
+    
+    const touches = Array.from(e.touches);
+    activeTouchesRef.current = touches;
+    
+    if (touches.length === 1) {
+      // Rozpoczęcie przesuwania
+      isPanningRef.current = true;
+      panStartRef.current = {
+        x: touches[0].clientX - panOffset.x,
+        y: touches[0].clientY - panOffset.y
+      };
+    } else if (touches.length === 2) {
+      // Rozpoczęcie pinch-to-zoom
+      isPanningRef.current = false;
+      
+      const dx = touches[1].clientX - touches[0].clientX;
+      const dy = touches[1].clientY - touches[0].clientY;
+      lastDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+      
+      lastCenterRef.current = {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+  }, [tool, panOffset]);
+
+  const handleTouchMove = useCallback((e) => {
+    if (tool !== "gestures") return;
+    
+    e.preventDefault();
+    
+    const touches = Array.from(e.touches);
+    activeTouchesRef.current = touches;
+    
+    if (touches.length === 1 && isPanningRef.current) {
+      // Przesuwanie jednym palcem
+      const newPan = {
+        x: touches[0].clientX - panStartRef.current.x,
+        y: touches[0].clientY - panStartRef.current.y
+      };
+      
+      const clamped = clampPan(newPan.x, newPan.y);
+      setPanOffset(clamped);
+    } else if (touches.length === 2) {
+      // Pinch-to-zoom z limitami
+      const dx = touches[1].clientX - touches[0].clientX;
+      const dy = touches[1].clientY - touches[0].clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (lastDistanceRef.current > 0) {
+        const zoomFactor = distance / lastDistanceRef.current;
+        const proposedZoom = zoom * zoomFactor;
+        
+        // Sprawdź czy proponowany zoom mieści się w limitach
+        if (proposedZoom < MIN_ZOOM || proposedZoom > MAX_ZOOM) {
+          // Jeśli wychodzimy poza limity, ogranicz ale kontynuuj śledzenie dystansu
+          // dla płynności gdy użytkownik wróci w dozwolony zakres
+          lastDistanceRef.current = distance;
+          return;
+        }
+        
+        const newZoom = clampZoom(proposedZoom);
+        
+        const centerX = (touches[0].clientX + touches[1].clientX) / 2;
+        const centerY = (touches[0].clientY + touches[1].clientY) / 2;
+        
+        updateZoomAndPan(newZoom, centerX, centerY);
+      }
+      
+      lastDistanceRef.current = distance;
+      lastCenterRef.current = {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+  }, [tool, zoom, panOffset, clampPan, updateZoomAndPan]);
+
+  const handleTouchEnd = useCallback((e) => {
+    if (tool !== "gestures") return;
+    
+    e.preventDefault();
+    
+    const touches = Array.from(e.touches);
+    activeTouchesRef.current = touches;
+    
+    if (touches.length === 0) {
+      isPanningRef.current = false;
+      lastDistanceRef.current = 0;
+    } else if (touches.length === 1) {
+      isPanningRef.current = true;
+      panStartRef.current = {
+        x: touches[0].clientX - panOffset.x,
+        y: touches[0].clientY - panOffset.y
+      };
+      lastDistanceRef.current = 0;
+    } else if (touches.length === 2) {
+      isPanningRef.current = false;
+    }
+  }, [tool, panOffset]);
+
+  const resetZoomAndPan = useCallback(() => {
+    setZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, []);
+
+  // =========================
+  // MYSZKA - zoom kółkiem z limitami
+  // =========================
+  const handleWheel = useCallback((e) => {
+    if (tool !== "gestures") return;
+    
+    e.preventDefault();
+    
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const proposedZoom = zoom * delta;
+    
+    // Sprawdź czy proponowany zoom mieści się w limitach
+    if (proposedZoom < MIN_ZOOM || proposedZoom > MAX_ZOOM) {
+      return; // Nie pozwól na zoom poza limitami
+    }
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const centerX = e.clientX - rect.left;
+    const centerY = e.clientY - rect.top;
+    
+    updateZoomAndPan(proposedZoom, centerX, centerY);
+  }, [tool, zoom, updateZoomAndPan]);
+
+  // =========================
+  // Event listeners dla touch/mouse
+  // =========================
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.addEventListener("touchstart", handleTouchStart, { passive: false });
+    container.addEventListener("touchmove", handleTouchMove, { passive: false });
+    container.addEventListener("touchend", handleTouchEnd, { passive: false });
+    container.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, handleWheel]);
+
+  // Automatycznie koryguj pan przy zmianie zoomu
+  useEffect(() => {
+    const clamped = clampPan(panOffset.x, panOffset.y);
+    if (clamped.x !== panOffset.x || clamped.y !== panOffset.y) {
+      setPanOffset(clamped);
+    }
+  }, [zoom, panOffset, clampPan]);
+
   const getStageRect = () => {
     const el = stageRef.current;
     if (!el) return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
@@ -141,6 +418,7 @@ export default function MainPage() {
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   };
 
+  // Modyfikacja clampToStage - musi uwzględniać zoom i pan
   const clampToStage = (x, y, w, h) => {
     const { width, height } = getStageRect();
     const nx = Math.max(0, Math.min(x, Math.max(0, width - w)));
@@ -149,15 +427,25 @@ export default function MainPage() {
   };
 
   // =========================
-  // PLACE TOOL
+  // PLACE TOOL (uwzględnia zoom i pan)
   // =========================
   const createElementAt = (clientX, clientY) => {
-    const { left, top } = getStageRect();
-    const x0 = clientX - left;
-    const y0 = clientY - top;
-
+    if (!stageRef.current) return;
+    
+    const stage = stageRef.current;
+    const stageRect = stage.getBoundingClientRect();
+    
+    // Oblicz pozycję względem przeskalowanego i przesuniętego stage
+    let x0 = clientX - stageRect.left;
+    let y0 = clientY - stageRect.top;
+    
+    // Jeśli jest zoom/pan, przelicz pozycję
+    if (zoom !== 1 || panOffset.x !== 0 || panOffset.y !== 0) {
+      x0 = (x0 - panOffset.x) / zoom;
+      y0 = (y0 - panOffset.y) / zoom;
+    }
+    
     const id = Date.now();
-
     const isRect = tool === "place_rect_fill" || tool === "place_rect_outline";
     const isCircle = tool === "place_circle_fill" || tool === "place_circle_outline";
 
@@ -265,15 +553,16 @@ export default function MainPage() {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
-      // canvas jest w CSS pixelach dzięki ctx.setTransform(dpr,...)
       const { width, height } = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, width, height);
     }
   
     // 5) opcjonalnie wróć do trybu selekcji
     setTool("select");
+    
+    // 6) zresetuj zoom i pan
+    resetZoomAndPan();
   };
-  
 
   // =========================
   // COLOR PICKER (react-colorful)
@@ -301,15 +590,23 @@ export default function MainPage() {
   );
 
   // =========================
-  // CANVAS: resize + redraw
+  // CANVAS: resize + redraw (uwzględnia zoom)
   // =========================
   const redrawAllStrokes = useCallback(
     (ctx) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      
+      // Pobierz rozmiary canvasa (już przeskalowane przez resizeCanvasToStage)
       const { width, height } = canvas.getBoundingClientRect();
-
-      ctx.clearRect(0, 0, width, height);
+      
+      // Sprawdź dpr canvasa
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const canvasWidth = canvas.width / dpr;
+      const canvasHeight = canvas.height / dpr;
+      
+      // Wyczyść cały canvas
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
@@ -320,7 +617,9 @@ export default function MainPage() {
 
         ctx.beginPath();
         ctx.moveTo(s.points[0].x, s.points[0].y);
-        for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+        for (let i = 1; i < s.points.length; i++) {
+          ctx.lineTo(s.points[i].x, s.points[i].y);
+        }
         ctx.stroke();
       }
     },
@@ -363,14 +662,29 @@ export default function MainPage() {
   }, [strokes, redrawAllStrokes]);
 
   // =========================
-  // PENCIL: RAF BATCHING 🎯
+  // PENCIL: RAF BATCHING (uwzględnia zoom i pan)
   // =========================
   const getLocalPoint = (evt) => {
-    const { left, top } = getStageRect();
-    return { x: evt.clientX - left, y: evt.clientY - top };
+    const stage = stageRef.current;
+    if (!stage) return { x: 0, y: 0 };
+    
+    const stageRect = stage.getBoundingClientRect();
+    let x = evt.clientX - stageRect.left;
+    let y = evt.clientY - stageRect.top;
+    
+    // Przelicz na współrzędne niezależne od zoomu/pan
+    if (zoom !== 1 || panOffset.x !== 0 || panOffset.y !== 0) {
+      x = (x - panOffset.x) / zoom;
+      y = (y - panOffset.y) / zoom;
+    }
+    
+    return { x, y };
   };
 
   const beginStroke = (evt) => {
+    // RYSUJ TYLKO W TRYBIE OŁÓWEK, NIE W TRYBIE GESTY!
+    if (tool !== "pencil") return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -449,6 +763,9 @@ export default function MainPage() {
     setStrokes((prev) => [...prev, stroke]);
   };
 
+  // =========================
+  // EVENT LISTENERS DLA OŁÓWKA - TYLKO W TRYBIE PENCIL!
+  // =========================
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -456,21 +773,27 @@ export default function MainPage() {
     const opts = { passive: false };
 
     const onPointerDown = (e) => {
+      // RYSUJ TYLKO W TRYBIE OŁÓWEK!
       if (tool !== "pencil") return;
+      
       e.preventDefault();
       e.stopPropagation();
       beginStroke(e);
     };
 
     const onPointerMove = (e) => {
+      // RYSUJ TYLKO W TRYBIE OŁÓWEK!
       if (tool !== "pencil") return;
       if (!drawingRef.current) return;
+      
       e.preventDefault();
       extendStroke(e);
     };
 
     const onPointerUp = (e) => {
+      // RYSUJ TYLKO W TRYBIE OŁÓWEK!
       if (tool !== "pencil") return;
+      
       e.preventDefault();
       commitStroke();
       try {
@@ -479,7 +802,9 @@ export default function MainPage() {
     };
 
     const onPointerCancel = (e) => {
+      // RYSUJ TYLKO W TRYBIE OŁÓWEK!
       if (tool !== "pencil") return;
+      
       commitStroke();
       try {
         canvas.releasePointerCapture(e.pointerId);
@@ -487,7 +812,9 @@ export default function MainPage() {
     };
 
     const onLostPointerCapture = () => {
+      // RYSUJ TYLKO W TRYBIE OŁÓWEK!
       if (tool !== "pencil") return;
+      
       commitStroke();
     };
 
@@ -508,18 +835,23 @@ export default function MainPage() {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [tool, currentColor, strokeWidth]);
+  }, [tool, currentColor, strokeWidth]); // Tylko zależności potrzebne dla ołówka
 
   const isPlacing = tool.startsWith("place_");
   const modeLabel = useMemo(() => {
     if (tool === "select") return "Selekcja";
     if (tool === "pencil") return "Ołówek";
+    if (tool === "gestures") return "Gesty (przytrzymaj 2 palce do zoom)";
     if (tool === "place_rect_fill") return "Kliknij na obrazie, aby wstawić: Prostokąt (fill)";
     if (tool === "place_rect_outline") return "Kliknij na obrazie, aby wstawić: Prostokąt (outline)";
     if (tool === "place_circle_fill") return "Kliknij na obrazie, aby wstawić: Koło (fill)";
     if (tool === "place_circle_outline") return "Kliknij na obrazie, aby wstawić: Koło (outline)";
     return "";
   }, [tool]);
+
+  // Sprawdź czy osiągnięto limity zoomu
+  const isAtMinZoom = zoom <= MIN_ZOOM;
+  const isAtMaxZoom = zoom >= MAX_ZOOM;
 
   return (
     <main className={styles.page}>
@@ -547,7 +879,10 @@ export default function MainPage() {
               <div className={styles.btnRow}>
                 <button
                   className={tool === "select" ? styles.btnPrimary : styles.btn}
-                  onClick={() => setTool("select")}
+                  onClick={() => {
+                    setTool("select");
+                    resetZoomAndPan();
+                  }}
                   type="button"
                 >
                   Selekcja
@@ -557,13 +892,42 @@ export default function MainPage() {
                   onClick={() => {
                     setSelectedId(null);
                     setTool("pencil");
+                    resetZoomAndPan();
                   }}
                   type="button"
                 >
                   Ołówek
                 </button>
+                <button
+                  className={tool === "gestures" ? styles.btnPrimary : styles.btn}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setTool("gestures");
+                  }}
+                  type="button"
+                >
+                  Gesty
+                </button>
               </div>
               <div className={styles.miniNote}>{modeLabel}</div>
+              {tool === "gestures" && (
+                <div className={styles.miniNote}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span>Zoom: {Math.round(zoom * 100)}%</span>
+                    <div style={{ fontSize: '10px', color: '#666' }}>
+                      {isAtMinZoom && 'MIN'}
+                      {isAtMaxZoom && 'MAX'}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={resetZoomAndPan}
+                    className={styles.btnSmall}
+                    type="button"
+                  >
+                    Resetuj widok (100%)
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className={styles.group}>
@@ -703,88 +1067,113 @@ export default function MainPage() {
           </button>
         </aside>
 
-        <div className={styles.stage} ref={stageRef} onPointerDownCapture={onStagePointerDownCapture}>
-          <img src={bgImage} alt="" className={styles.bgImage} />
+        {/* Kontener dla zoomu i pan */}
+        <div 
+          ref={containerRef}
+          className={styles.zoomContainer}
+          style={{
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+            transformOrigin: '0 0',
+            cursor: tool === 'gestures' ? (isAtMinZoom && isAtMaxZoom ? 'default' : 'grab') : 'default'
+          }}
+        >
+          <div 
+            className={styles.stage} 
+            ref={stageRef} 
+            onPointerDownCapture={onStagePointerDownCapture}
+          >
+            <img src={bgImage} alt="" className={styles.bgImage} />
 
-          <div className={styles.stageOverlay} />
+            <div className={styles.stageOverlay} />
 
-          <canvas
-            ref={canvasRef}
-            className={`${styles.drawCanvas} ${tool === "pencil" ? styles.canvasActive : ""}`}
-            aria-hidden="true"
-          />
+            {/* Canvas jest aktywny tylko w trybie OŁÓWEK, nie w trybie GESTY */}
+            <canvas
+              ref={canvasRef}
+              className={`${styles.drawCanvas} ${tool === "pencil" ? styles.canvasActive : ""}`}
+              aria-hidden="true"
+            />
 
-          <div className={tool === "pencil" ? styles.objectsPencil : styles.objectsSelect}>
-            {elements.map((el) => {
-              const isSelected = el.id === selectedId;
-              const showEditor = isSelected;
+            {/* W trybie GESTY również nie pokazujemy uchwytów do elementów */}
+            <div className={tool === "pencil" ? styles.objectsPencil : styles.objectsSelect}>
+              {elements.map((el) => {
+                const isSelected = el.id === selectedId;
+                // W trybie GESTY nie pokazujemy edytora - tylko w trybie SELECT
+                const showEditor = isSelected && tool === "select";
 
-              return (
-                <Rnd
-                  key={el.id}
-                  size={{ width: el.width, height: el.height }}
-                  position={{ x: el.x, y: el.y }}
-                  bounds="parent"
-                  disableDragging={tool !== "select"}
-                  enableResizing={tool === "select"}
-                  onDragStop={(e, d) => {
-                    setElements((prev) => prev.map((p) => (p.id === el.id ? { ...p, x: d.x, y: d.y } : p)));
-                  }}
-                  onResizeStop={(e, direction, ref, delta, position) => {
-                    const newW = parseInt(ref.style.width, 10);
-                    const newH = parseInt(ref.style.height, 10);
-                    setElements((prev) =>
-                      prev.map((p) =>
-                        p.id === el.id ? { ...p, width: newW, height: newH, x: position.x, y: position.y } : p
-                      )
-                    );
-                  }}
-                  onPointerDown={(e) => {
-                    if (tool !== "select") return;
-                    e.stopPropagation();
-                    setSelectedId(el.id);
-                  }}
-                  className={showEditor ? styles.rndSelected : styles.rnd}
-                >
-                  <div
-                    className={styles.shape}
-                    style={{
-                      borderRadius: el.shape === "circle" ? "50%" : "10px",
-                      backgroundColor: el.filled ? el.color : "transparent",
-                      border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
+                return (
+                  <Rnd
+                    key={el.id}
+                    size={{ width: el.width, height: el.height }}
+                    position={{ x: el.x, y: el.y }}
+                    bounds="parent"
+                    disableDragging={tool !== "select"} // Tylko w trybie SELECT można przeciągać
+                    enableResizing={tool === "select"} // Tylko w trybie SELECT można zmieniać rozmiar
+                    onDragStop={(e, d) => {
+                      // Tylko w trybie SELECT aktualizujemy pozycję
+                      if (tool !== "select") return;
+                      setElements((prev) => prev.map((p) => (p.id === el.id ? { ...p, x: d.x, y: d.y } : p)));
                     }}
-                  />
+                    onResizeStop={(e, direction, ref, delta, position) => {
+                      // Tylko w trybie SELECT aktualizujemy rozmiar
+                      if (tool !== "select") return;
+                      const newW = parseInt(ref.style.width, 10);
+                      const newH = parseInt(ref.style.height, 10);
+                      setElements((prev) =>
+                        prev.map((p) =>
+                          p.id === el.id ? { ...p, width: newW, height: newH, x: position.x, y: position.y } : p
+                        )
+                      );
+                    }}
+                    onPointerDown={(e) => {
+                      // W trybie SELECT zaznaczamy element
+                      // W trybie GESTY ignorujemy kliknięcie na element
+                      if (tool !== "select") return;
+                      e.stopPropagation();
+                      setSelectedId(el.id);
+                    }}
+                    className={showEditor ? styles.rndSelected : styles.rnd}
+                  >
+                    <div
+                      className={styles.shape}
+                      style={{
+                        borderRadius: el.shape === "circle" ? "50%" : "10px",
+                        backgroundColor: el.filled ? el.color : "transparent",
+                        border: el.filled ? "none" : `${el.strokeWidth || 3}px solid ${el.color}`,
+                      }}
+                    />
 
-                  {showEditor && tool === "select" && (
-                    <>
-                      <span className={styles.handle} style={{ top: "-10px", left: "-10px" }} />
-                      <span className={styles.handle} style={{ top: "-10px", right: "-10px" }} />
-                      <span className={styles.handle} style={{ bottom: "-10px", left: "-10px" }} />
-                      <span className={styles.handle} style={{ bottom: "-10px", right: "-10px" }} />
-                      <span
-                        className={styles.handle}
-                        style={{ top: "-12px", left: "50%", transform: "translateX(-50%)" }}
-                      />
-                      <span
-                        className={styles.handle}
-                        style={{ bottom: "-12px", left: "50%", transform: "translateX(-50%)" }}
-                      />
-                      <span
-                        className={styles.handle}
-                        style={{ top: "50%", left: "-12px", transform: "translateY(-50%)" }}
-                      />
-                      <span
-                        className={styles.handle}
-                        style={{ top: "50%", right: "-12px", transform: "translateY(-50%)" }}
-                      />
-                    </>
-                  )}
-                </Rnd>
-              );
-            })}
+                    {/* Pokazuj uchwyty tylko w trybie SELECT i gdy element jest zaznaczony */}
+                    {showEditor && (
+                      <>
+                        <span className={styles.handle} style={{ top: "-10px", left: "-10px" }} />
+                        <span className={styles.handle} style={{ top: "-10px", right: "-10px" }} />
+                        <span className={styles.handle} style={{ bottom: "-10px", left: "-10px" }} />
+                        <span className={styles.handle} style={{ bottom: "-10px", right: "-10px" }} />
+                        <span
+                          className={styles.handle}
+                          style={{ top: "-12px", left: "50%", transform: "translateX(-50%)" }}
+                        />
+                        <span
+                          className={styles.handle}
+                          style={{ bottom: "-12px", left: "50%", transform: "translateX(-50%)" }}
+                        />
+                        <span
+                          className={styles.handle}
+                          style={{ top: "50%", left: "-12px", transform: "translateY(-50%)" }}
+                        />
+                        <span
+                          className={styles.handle}
+                          style={{ top: "50%", right: "-12px", transform: "translateY(-50%)" }}
+                        />
+                      </>
+                    )}
+                  </Rnd>
+                );
+              })}
+            </div>
+
+            {isPlacing && <div className={styles.placeHint}>Kliknij na obrazie, aby wstawić obiekt</div>}
           </div>
-
-          {isPlacing && <div className={styles.placeHint}>Kliknij na obrazie, aby wstawić obiekt</div>}
         </div>
       </section>
     </main>
