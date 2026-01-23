@@ -1,0 +1,66 @@
+.page {
+    min-height: 100vh;
+    padding: 32px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 18px;
+  }
+  
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  .title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+  }
+  
+  .badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  
+  .badge[data-status="CONNECTED"] {
+    border-color: #1a7f37;
+  }
+  
+  .badge[data-status="DISCONNECTED"] {
+    border-color: #999;
+  }
+  
+  .badge[data-status="ERROR"] {
+    border-color: #b42318;
+  }
+  
+  .card {
+    align-self: start;
+    border: 1px solid #e3e3e3;
+    border-radius: 16px;
+    padding: 18px;
+    background: #fff;
+    max-width: 860px;
+  }
+  
+  .label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #666;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  
+  .text {
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+  
