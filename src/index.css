@@ -17,21 +17,10 @@
   box-sizing: border-box;
 }
 
-html,
-body {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-
-  /* kluczowe: zero scrolla, pełny viewport */
-  overflow: hidden;
-}
 
 #root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
 }
 
 a {
@@ -41,4 +30,10 @@ a {
 
 button {
   font: inherit;
+}
+
+
+html, body {
+  height: 100%;
+  overflow: auto;
 }

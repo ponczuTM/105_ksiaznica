@@ -1,80 +1,109 @@
-import { useEffect, useMemo, useState } from "react";
+// Player.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
+import styles from "./Player.module.css";
 
-const COPY = {
-  "1": "To świetny wybór na dzisiaj!",
-  "2": "Brzmi jak plan idealny.",
-  "3": "Doskonały sposób na dobry humor.",
-  "4": "To świetny wybór na dzisiaj!",
-  "5": "Ciekawa decyzja, gratulacje!",
-  "6": "Warto o tym pamiętać częściej.",
-  "7": "To strzał w dziesiątkę!",
-  "8": "Nie każdy by na to wpadł, brawo!",
-  "9": "To rozwiązanie ma wiele zalet!",
-  "10": "Brzmi jak plan idealny.",
-  "11": "Warto o tym pamiętać częściej.",
-  "12": "To świetny wybór na dzisiaj!",
-  "13": "Ciekawa decyzja, gratulacje!",
-  "14": "Doskonały sposób na dobry humor.",
-  "15": "To strzał w dziesiątkę!"
-}
+import video1 from "../assets/videos/1.mp4";
+import video2 from "../assets/videos/2.mp4";
+import video3 from "../assets/videos/3.mp4";
+import video4 from "../assets/videos/4.mp4";
+import video5 from "../assets/videos/5.mp4";
+import video6 from "../assets/videos/6.mp4";
+import video7 from "../assets/videos/7.mp4";
+import video8 from "../assets/videos/8.mp4";
+import video9 from "../assets/videos/9.mp4";
+import video10 from "../assets/videos/10.mp4";
+
+const VIDEO_MAP = {
+  "1": video1,
+  "2": video2,
+  "3": video3,
+  "4": video4,
+  "5": video5,
+  "6": video6,
+  "7": video7,
+  "8": video8,
+  "9": video9,
+  "10": video10,
+};
 
 export default function Player() {
-  const [status, setStatus] = useState("DISCONNECTED");
-  const [lastItem, setLastItem] = useState(null);
-
-  const wsUrl = useMemo(() => {
-    const base = import.meta.env.VITE_WS_URL;
-    return `${base}?role=player`;
+  const backendBase = useMemo(() => {
+    const localip = "10.10.233.138";
+    const port = 3001;
+    return `http://${localip}:${port}`;
   }, []);
 
+  const [apiVideoId, setApiVideoId] = useState(null);
+  const [playingSrc, setPlayingSrc] = useState(null);
+  const [playingId, setPlayingId] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerKey, setPlayerKey] = useState(0);
+
+  const videoRef = useRef(null);
+
   useEffect(() => {
-    console.log("VITE_WS_URL =", import.meta.env.VITE_WS_URL);
-    console.log("wsUrl =", wsUrl);
+    let cancelled = false;
 
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log("WS open");
-      setStatus("CONNECTED");
-    };
-
-    ws.onerror = (e) => {
-      console.error("WS error", e);
-      setStatus("ERROR");
-    };
-
-    ws.onclose = (e) => {
-      console.warn("WS close", { code: e.code, reason: e.reason, wasClean: e.wasClean });
-      setStatus("DISCONNECTED");
-    };
-
-    ws.onmessage = (evt) => {
-      let msg;
+    const tick = async () => {
       try {
-        msg = JSON.parse(evt.data);
-      } catch {
-        return;
-      }
+        const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
 
-      if (msg?.type === "selection" && typeof msg.item === "string") {
-        setLastItem(msg.item);
+        const incoming = data?.videoid ?? null;
+        if (!cancelled) setApiVideoId(incoming);
+
+        if (isPlaying) return;
+        if (incoming === null) return;
+
+        const src = VIDEO_MAP[String(incoming)];
+        if (!src) return;
+
+        setPlayingSrc(src);
+        setPlayingId(String(incoming));
+        setIsPlaying(true);
+        setPlayerKey((k) => k + 1);
+      } catch {
+        // silent fail: brak networku nie ma wywracać UI
       }
     };
+
+    tick();
+    const t = setInterval(tick, 500);
 
     return () => {
-      try { ws.close(); } catch {}
+      cancelled = true;
+      clearInterval(t);
     };
-  }, [wsUrl]);
+  }, [backendBase, isPlaying]);
 
-  const text = lastItem ? (COPY[lastItem] || `Wybrałeś: ${lastItem}`) : "Czekam na wybór z Viewera…";
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setPlayingSrc(null);
+    setPlayingId(null);
+  };
 
   return (
-    <div style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1>Player</h1>
-      <div>WS: <b>{status}</b></div>
+    <div className={styles.player}>
+      <div className={styles.topBar}>
+        aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
+      </div>
 
-      <div style={{ marginTop: 16, fontSize: 24, fontWeight: 900 }}>
-        {text}
+      <div className={styles.stage}>
+        {playingSrc ? (
+          <video
+            key={playerKey}
+            ref={videoRef}
+            className={styles.video}
+            src={playingSrc}
+            autoPlay
+            playsInline
+            controls={false}
+            onEnded={handleEnded}
+          />
+        ) : (
+          <div className={styles.placeholder}>wybierz wideo do odtworzenia</div>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,18 @@
+{
+  "name": "105_be",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node Server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ws": "^8.19.0"
+  }
+}

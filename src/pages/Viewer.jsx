@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// Viewer.jsx
+import { useEffect, useMemo, useState } from "react";
 import styles from "./Viewer.module.css";
 import BGvideo from "../assets/images/video.mp4";
+
 const ITEMS = [
   { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
   { key: "2", label: "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?" },
@@ -15,37 +17,64 @@ const ITEMS = [
 ];
 
 export default function Viewer() {
-  const wsRef = useRef(null);
   const [status, setStatus] = useState("DISCONNECTED");
 
-  const wsUrl = useMemo(() => {
-    const base = import.meta.env.VITE_WS_URL;
-    return `${base}?role=viewer`;
+  // backend stoi na player/serwerze
+  const backendBase = useMemo(() => {
+    const localip = "10.10.233.138";
+    const port = 3001;
+    return `http://${localip}:${port}`;
   }, []);
 
+  // ping backendu
   useEffect(() => {
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let cancelled = false;
 
-    ws.onopen = () => setStatus("CONNECTED");
-    ws.onerror = () => setStatus("ERROR");
-    ws.onclose = () => setStatus("DISCONNECTED");
-    ws.onmessage = (evt) => console.log("WS message", evt.data);
+    const ping = async () => {
+      try {
+        const res = await fetch(`${backendBase}/get`);
+        if (!res.ok) throw new Error("Bad status");
+        if (!cancelled) setStatus("CONNECTED");
+      } catch {
+        if (!cancelled) setStatus("ERROR");
+      }
+    };
+
+    ping();
+    const t = setInterval(ping, 2000);
 
     return () => {
-      try { ws.close(); } catch {}
+      cancelled = true;
+      clearInterval(t);
     };
-  }, [wsUrl]);
+  }, [backendBase]);
 
-  const sendSelection = (itemKey) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    ws.send(JSON.stringify({ type: "selection", item: itemKey, ts: Date.now() }));
+  const sendSelection = async (itemKey) => {
+    try {
+      const url = `${backendBase}/post/${itemKey}`;
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) throw new Error("POST failed");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
   };
 
   return (
     <div className={styles.viewer}>
+      {/* VIDEO BACKGROUND */}
+      <video
+        className={styles.bgVideo}
+        src={BGvideo}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+
+      {/* opcjonalna warstwa przyciemniająca */}
+      <div className={styles.bgOverlay} />
+
       <div className={styles.content}>
         <header className={styles.header}>
           <h1 className={styles.title}>Ask Nicolaus Copernicus</h1>
