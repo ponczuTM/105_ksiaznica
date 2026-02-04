@@ -21,10 +21,11 @@ export default function Viewer() {
 
   // backend stoi na player/serwerze
   const backendBase = useMemo(() => {
-    const localip = "10.10.233.138";
-    const port = 3001;
+    const localip = import.meta.env.VITE_BACKEND_IP;
+    const port = import.meta.env.VITE_BACKEND_PORT;
     return `http://${localip}:${port}`;
   }, []);
+  
 
   // ping backendu
   useEffect(() => {

@@ -28,10 +28,11 @@ const VIDEO_MAP = {
 
 export default function Player() {
   const backendBase = useMemo(() => {
-    const localip = "10.10.233.138";
-    const port = 3001;
+    const localip = import.meta.env.VITE_BACKEND_IP;
+    const port = import.meta.env.VITE_BACKEND_PORT;
     return `http://${localip}:${port}`;
   }, []);
+  
 
   const [apiVideoId, setApiVideoId] = useState(null);
   const [playingSrc, setPlayingSrc] = useState(null);
