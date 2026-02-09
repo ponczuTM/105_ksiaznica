@@ -12,3 +12,14 @@ The building itself remains perfectly still and sharp, with realistic reflection
 No changes to composition. No added objects. No people movement.
 
 Ultra-realistic, architectural visualization quality, high detail, natural motion, physically plausible lighting, cinematic realism, 4K quality.
+
+
+
+
+
+
+
+
+
+
+for i in {1..10}; do ffmpeg -i "$i.mp4" -c:v libvpx-vp9 -lossless 1 -c:a libopus -b:a 192k "$i.webm"; done
