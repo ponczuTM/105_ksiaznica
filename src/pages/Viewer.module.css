@@ -261,15 +261,6 @@
   pointer-events: none;
 }
 
-/* Hover = button floats in space */
-.button:hover:not(:disabled) {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.8),
-    0 0 24px rgba(255, 255, 255, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
 /* Active = press down */
 .button:active:not(:disabled) {
   transform: translateY(0) scale(0.98);
@@ -297,7 +288,6 @@
   .button::after {
     transition: none;
   }
-  .button:hover,
   .button:active {
     transform: none;
   }
