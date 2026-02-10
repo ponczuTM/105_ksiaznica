@@ -1,33 +1,30 @@
 // Viewer.jsx
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Viewer.module.css";
-import BGvideo from "../assets/images/video.mp4";
+import bgPhoto from "../assets/images/bg.png";
 
 const ITEMS = [
   { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
   { key: "2", label: "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?" },
   { key: "3", label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?" },
-  { key: "4", label: "Do you know the title of Copernicus’s work in which he presented his heliocentric theory?" },
+  { key: "4", label: "Do you know the title of Copernicus's work in which he presented his heliocentric theory?" },
   { key: "5", label: "Do you know where Copernicus's tomb is located today?" },
   { key: "6", label: "Do you know the name of the most famous astronomer born in Toruń?" },
   { key: "7", label: "Do you know what traditional product is Toruń famous for, with a dedicated museum in the city?" },
   { key: "8", label: "Do you know which river flows through Toruń?" },
-  { key: "9", label: "Do you know the name of the famous leaning structure in Toruń’s Old Town?" },
+  { key: "9", label: "Do you know the name of the famous leaning structure in Toruń's Old Town?" },
   { key: "10", label: "Do you know the name of the Toruń Old Town complex listed as a UNESCO World Heritage Site?" }
 ];
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
 
-  // backend stoi na player/serwerze
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
     const port = import.meta.env.VITE_BACKEND_PORT;
     return `http://${localip}:${port}`;
   }, []);
-  
 
-  // ping backendu
   useEffect(() => {
     let cancelled = false;
 
@@ -63,17 +60,10 @@ export default function Viewer() {
 
   return (
     <div className={styles.viewer}>
-      {/* VIDEO BACKGROUND */}
-      <video
-        className={styles.bgVideo}
-        src={BGvideo}
-        autoPlay
-        muted
-        loop
-        playsInline
-      />
+      {/* PHOTO BACKGROUND */}
+      <div className={styles.bgPhoto} style={{ backgroundImage: `url(${bgPhoto})` }} />
 
-      {/* opcjonalna warstwa przyciemniająca */}
+      {/* Warstwa przyciemniająca */}
       <div className={styles.bgOverlay} />
 
       <div className={styles.content}>
