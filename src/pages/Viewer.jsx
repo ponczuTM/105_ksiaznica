@@ -4,37 +4,36 @@ import styles from "./Viewer.module.css";
 
 import kopernikPhoto from "../assets/images/kopernik.png";
 import mapPhoto from "../assets/images/mapa.png";
-import planetsPhoto from "../assets/images/planets.png";
 
-// Twoje SVG (BACK/PLAY/STOP) – użyte jako fallback / opcjonalnie
+// THUMBS dla przycisków:
+import torunThumb from "../assets/images/torun.png";
+import bookThumb from "../assets/images/book.png";
+import planetsThumb from "../assets/images/planets.png";
+
 import backButton from "../assets/images/undo-stroke.svg";
 import playButton from "../assets/images/play-circle.svg";
 import stopButton from "../assets/images/pause-circle.svg";
 
-// Boxicons via react-icons
 import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
 
+import SpaceBackground from "./SpaceBackground";
+
 const ITEMS = [
-  { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
-  {
-    key: "2",
-    label:
-      "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?",
-  },
+  { key: "1", label: "TORUŃ - MY TOWN", thumb: torunThumb },
+  { key: "2", label: "MY EDUCATION AND COMPETENCES", thumb: bookThumb },
   {
     key: "3",
-    label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?",
+    label: 'MY HELIOCENTRIC THEORY "DE REVOLUTIONIBUS ORBIUM COELESTIUM"',
+    thumb: planetsThumb,
   },
 ];
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
 
-  // UI state
   const [selectedKey, setSelectedKey] = useState(null);
   const [stopped, setStopped] = useState(false);
 
-  // animacje: sterujemy klasą "enter"
   const [controlsVisible, setControlsVisible] = useState(false);
 
   const backendBase = useMemo(() => {
@@ -43,7 +42,6 @@ export default function Viewer() {
     return `http://${localip}:${port}`;
   }, []);
 
-  // Poll backend: status + auto-reset UI when backend says videoid=null
   useEffect(() => {
     let cancelled = false;
 
@@ -57,7 +55,6 @@ export default function Viewer() {
 
         setStatus("CONNECTED");
 
-        // Jeśli wideo skończyło się i backend ma null -> Viewer wraca do domyślnego
         const backendVideoId = data?.videoid ?? null;
         if (backendVideoId === null && selectedKey !== null) {
           setSelectedKey(null);
@@ -77,13 +74,11 @@ export default function Viewer() {
     };
   }, [backendBase, selectedKey]);
 
-  // kontrolki mają się ładnie pojawić po wybraniu kafla
   useEffect(() => {
     if (!selectedKey) {
       setControlsVisible(false);
       return;
     }
-    // mikro-opóźnienie => CSS animacje startują pewniej
     const t = setTimeout(() => setControlsVisible(true), 20);
     return () => clearTimeout(t);
   }, [selectedKey]);
@@ -132,11 +127,9 @@ export default function Viewer() {
 
   const onBack = async () => {
     try {
-      // UI lokalnie od razu w domyślny
       setSelectedKey(null);
       setStopped(false);
 
-      // Backend OBLIGATORYJNIE null
       await sendControl("back");
       setStatus("CONNECTED");
     } catch {
@@ -148,8 +141,11 @@ export default function Viewer() {
 
   return (
     <div className={styles.viewer}>
+      {/* TŁO (canvas three.js) */}
+      <SpaceBackground className={styles.spaceBg} />
+
+      {/* UI na wierzchu */}
       <div className={styles.content}>
-        {/* TOP BANNER */}
         <div className={styles.banner}>
           <div className={styles.bannerInner}>
             <div className={styles.bannerLeftImg}>
@@ -166,7 +162,6 @@ export default function Viewer() {
             </div>
           </div>
 
-          {/* STATUS pill */}
           <div className={styles.status}>
             <span
               className={[
@@ -189,7 +184,7 @@ export default function Viewer() {
                 className={styles.qButton}
               >
                 <span className={styles.qThumb} aria-hidden="true">
-                  <img src={planetsPhoto} alt="" />
+                  <img src={it.thumb} alt="" />
                 </span>
                 <span className={styles.qText}>{it.label}</span>
               </button>
@@ -206,7 +201,7 @@ export default function Viewer() {
                 ].join(" ")}
               >
                 <span className={styles.qThumb} aria-hidden="true">
-                  <img src={planetsPhoto} alt="" />
+                  <img src={selectedItem?.thumb} alt="" />
                 </span>
                 <span className={styles.qText}>{selectedItem?.label}</span>
               </button>
@@ -224,14 +219,12 @@ export default function Viewer() {
                   aria-label={stopped ? "Play" : "Stop"}
                   title={stopped ? "PLAY" : "STOP"}
                 >
-                  {/* Boxicons */}
                   {stopped ? (
                     <BiPlayCircle className={styles.icon} />
                   ) : (
                     <BiPauseCircle className={styles.icon} />
                   )}
 
-                  {/* Fallback Twoje SVG (możesz usunąć) */}
                   <img
                     className={styles.iconFallback}
                     src={stopped ? playButton : stopButton}

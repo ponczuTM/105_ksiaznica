@@ -1,5 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Anta&display=swap");
 
+:root {
+  --black-0765: rgba(0, 0, 0, 0.1);
+}
+
 .viewer {
   min-height: 100vh;
   background: #000;
@@ -9,11 +13,40 @@
   padding: 28px 20px;
   box-sizing: border-box;
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  position: relative;
+  overflow: hidden;
+}
+
+/* TŁO THREE.JS */
+.spaceBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+/* UWAGA:
+   ::after nie zadziała jeśli .spaceBg jest <canvas>.
+   Jeśli SpaceBackground zwraca canvas, winietę dodaj jako osobny div.
+*/
+.spaceBg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    60% 60% at 50% 30%,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.65)
+  );
 }
 
 .content {
   width: 100%;
   max-width: 1320px;
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------- TOP BANNER ---------- */
@@ -27,7 +60,7 @@
   border: 4px solid #fff;
   border-radius: 26px;
   overflow: hidden;
-  background: #000;
+  background-color: var(--black-0765);
 
   display: grid;
   grid-template-columns: 220px 1fr 260px;
@@ -39,7 +72,7 @@
 .bannerRightImg {
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background-color: var(--black-0765);
 }
 
 .bannerLeftImg img,
@@ -106,7 +139,7 @@
   gap: 10px;
 
   padding: 10px 14px;
-  background: #000;
+  background-color: var(--black-0765);
   border: 3px solid #fff;
   border-radius: 999px;
 
@@ -147,7 +180,7 @@
 .qButton {
   width: 100%;
   border: 4px solid #fff;
-  background: #000;
+  background-color: var(--black-0765);
   color: #fff;
   border-radius: 26px;
   overflow: hidden;
@@ -162,6 +195,7 @@
 
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin-top: 50px;
 }
 
 .qButton:hover:enabled {
@@ -182,7 +216,7 @@
 .qThumb {
   position: relative;
   overflow: hidden;
-  background: #000;
+  background-color: var(--black-0765);
   border-right: none;
 }
 
@@ -207,7 +241,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 
-  font-size: 20px;
+  font-size: 40px;
   line-height: 1.28;
 }
 
@@ -217,7 +251,6 @@
   opacity: 1;
 }
 
-/* delikatne wejście dla wybranego kafla */
 .qButtonSelectedEnter {
   animation: selectedCardIn 240ms ease-out both;
 }
@@ -241,7 +274,6 @@
   justify-content: flex-end;
   align-items: center;
 
-  /* start: niewidoczne, animacja odpala po dodaniu klasy */
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
@@ -265,13 +297,12 @@
   }
 }
 
-/* Icon buttons */
 .iconBtn {
   height: 64px;
   width: 64px;
   border-radius: 18px;
   border: 4px solid #fff;
-  background: #000;
+  background-color: var(--black-0765);
   color: #fff;
 
   display: inline-flex;
@@ -298,103 +329,17 @@
   opacity: 0.55;
 }
 
-/* wersja “secondary” – subtelnie inna */
 .iconBtnSecondary {
   opacity: 0.92;
 }
 
-/* Ikony (react-icons) */
 .icon {
   font-size: 40px;
   line-height: 1;
 }
 
-/* Fallback SVG */
 .iconFallback {
   display: none;
   width: 38px;
   height: 38px;
-}
-
-/*
-  Jeśli chcesz szybko przełączyć na SVG zamiast Boxicons,
-  zakomentuj .icon i odkomentuj linie poniżej:
-
-  .icon { display: none; }
-  .iconFallback { display: block; }
-*/
-
-/* ---------- RESPONSIVE ---------- */
-
-@media (max-width: 1100px) {
-  .bannerInner {
-    grid-template-columns: 180px 1fr 220px;
-  }
-  .qButton {
-    grid-template-columns: 150px 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .status {
-    position: static;
-    margin: 12px 0 0 auto;
-    width: fit-content;
-  }
-
-  .bannerInner {
-    grid-template-columns: 160px 1fr 200px;
-    min-height: 150px;
-  }
-
-  .controls {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 640px) {
-  .bannerInner {
-    grid-template-columns: 120px 1fr 150px;
-    min-height: 130px;
-    border-radius: 22px;
-  }
-
-  .bannerYears {
-    left: 14px;
-    bottom: 10px;
-    font-size: 14px;
-  }
-
-  .qButton {
-    border-radius: 22px;
-    grid-template-columns: 120px 1fr;
-  }
-
-  .qText {
-    font-size: 16px;
-    padding: 16px 14px;
-  }
-
-  .iconBtn {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
-  }
-
-  .icon {
-    font-size: 36px;
-  }
-}
-
-/* Dostępność: jak ktoś ma redukcję animacji */
-@media (prefers-reduced-motion: reduce) {
-  .qButtonSelectedEnter,
-  .controlsEnter {
-    animation: none !important;
-  }
-  .controls {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
 }
