@@ -23,10 +23,22 @@ const ITEMS = [
   { key: "2", label: "MY EDUCATION AND COMPETENCES", thumb: bookThumb },
   {
     key: "3",
+    // NOWA LINIA: użyj \n
     label: 'MY HELIOCENTRIC THEORY "DE REVOLUTIONIBUS ORBIUM COELESTIUM"',
     thumb: planetsThumb,
   },
 ];
+
+// helper: renderuje label z nowymi liniami
+function LabelWithNewlines({ text }) {
+  if (typeof text !== "string") return null;
+  return text.split("\n").map((line, i, arr) => (
+    <span key={i}>
+      {line}
+      {i < arr.length - 1 ? <br /> : null}
+    </span>
+  ));
+}
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
@@ -141,6 +153,63 @@ export default function Viewer() {
 
   return (
     <div className={styles.viewer}>
+      {/* SVG FILTER (ukryty, ale dostępny dla CSS filter:url(#glass-distortion)) */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        role="presentation"
+        aria-hidden="true"
+        className={styles.svgFilters}
+      >
+        <filter
+          id="glass-distortion"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
+          filterUnits="objectBoundingBox"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.001 0.005"
+            numOctaves="1"
+            seed="17"
+            result="turbulence"
+          />
+          <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+          </feComponentTransfer>
+          <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+          <feSpecularLighting
+            in="softMap"
+            surfaceScale="5"
+            specularConstant="1"
+            specularExponent="100"
+            lightingColor="white"
+            result="specLight"
+          >
+            <fePointLight x="-200" y="-200" z="300" />
+          </feSpecularLighting>
+          <feComposite
+            in="specLight"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3="1"
+            k4="0"
+            result="litImage"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="softMap"
+            scale="200"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
       {/* TŁO (canvas three.js) */}
       <SpaceBackground className={styles.spaceBg} />
 
@@ -181,12 +250,16 @@ export default function Viewer() {
                 key={it.key}
                 onClick={() => onPick(it.key)}
                 disabled={!connected}
-                className={styles.qButton}
+                className={[styles.qButton, styles.liquidGlass].join(" ")}
               >
                 <span className={styles.qThumb} aria-hidden="true">
                   <img src={it.thumb} alt="" />
                 </span>
-                <span className={styles.qText}>{it.label}</span>
+
+                {/* TU renderujemy z <br/> */}
+                <span className={styles.qText}>
+                  <LabelWithNewlines text={it.label} />
+                </span>
               </button>
             ))
           ) : (
@@ -196,6 +269,7 @@ export default function Viewer() {
                 disabled
                 className={[
                   styles.qButton,
+                  styles.liquidGlass,
                   styles.qButtonSelected,
                   styles.qButtonSelectedEnter,
                 ].join(" ")}
@@ -203,7 +277,11 @@ export default function Viewer() {
                 <span className={styles.qThumb} aria-hidden="true">
                   <img src={selectedItem?.thumb} alt="" />
                 </span>
-                <span className={styles.qText}>{selectedItem?.label}</span>
+
+                {/* TU też */}
+                <span className={styles.qText}>
+                  <LabelWithNewlines text={selectedItem?.label ?? ""} />
+                </span>
               </button>
 
               <div
@@ -215,7 +293,7 @@ export default function Viewer() {
                 <button
                   onClick={onStopPlay}
                   disabled={!connected}
-                  className={styles.iconBtn}
+                  className={[styles.iconBtn, styles.liquidGlass].join(" ")}
                   aria-label={stopped ? "Play" : "Stop"}
                   title={stopped ? "PLAY" : "STOP"}
                 >
@@ -236,7 +314,11 @@ export default function Viewer() {
                 <button
                   onClick={onBack}
                   disabled={!connected}
-                  className={[styles.iconBtn, styles.iconBtnSecondary].join(" ")}
+                  className={[
+                    styles.iconBtn,
+                    styles.liquidGlass,
+                    styles.iconBtnSecondary,
+                  ].join(" ")}
                   aria-label="Back"
                   title="BACK"
                 >

@@ -1,7 +1,19 @@
 @import url("https://fonts.googleapis.com/css2?family=Anta&display=swap");
 
 :root {
-  --black-0765: rgba(0, 0, 0, 0.1);
+  --black-0765: rgba(0, 0, 0, 0.765);
+
+  /* liquid-glass tuning */
+  --glass-bg: rgba(255, 255, 255, 0.14);
+  --glass-text: rgba(255, 255, 255, 0.92);
+  --glass-shadow: 0 10px 28px rgba(0, 0, 0, 0.28), 0 0 22px rgba(0, 0, 0, 0.14);
+  --glass-outline: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.45),
+    inset -1px -1px 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+/* ukryty svg z filtrami */
+.svgFilters {
+  display: none;
 }
 
 .viewer {
@@ -49,6 +61,60 @@
   z-index: 1;
 }
 
+/* ---------- LIQUID GLASS (DO PRZYCISKÓW) ---------- */
+
+/* Dodajesz tę klasę do buttonów */
+.liquidGlass {
+  position: relative;
+  isolation: isolate;
+
+  /* szkło */
+  background-color: var(--glass-bg);
+  color: var(--glass-text);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--glass-shadow);
+
+  /* ważne: żeby blur działał „na tle” */
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+
+}
+
+/* warstwy glass */
+.liquidGlass::before,
+.liquidGlass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* distortion + blur */
+.liquidGlass::before {
+  z-index: -1;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  filter: url(#glass-distortion);
+  opacity: 0.25;
+}
+
+/* outline shine */
+.liquidGlass::after {
+  z-index: 0;
+  box-shadow: var(--glass-outline);
+  opacity: 0.2;
+}
+
+/* hover/active trochę “życia” */
+.liquidGlass:hover:enabled {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.34), 0 0 26px rgba(255, 255, 255, 0.06);
+}
+
+.liquidGlass:active:enabled {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28), 0 0 18px rgba(255, 255, 255, 0.05);
+}
+
 /* ---------- TOP BANNER ---------- */
 
 .banner {
@@ -57,7 +123,7 @@
 }
 
 .bannerInner {
-  border: 4px solid #fff;
+  border: 4px solid #ffffff68;
   border-radius: 26px;
   overflow: hidden;
   background-color: var(--black-0765);
@@ -179,9 +245,7 @@
 
 .qButton {
   width: 100%;
-  border: 4px solid #fff;
-  background-color: var(--black-0765);
-  color: #fff;
+  /* UWAGA: tło robi .liquidGlass */
   border-radius: 26px;
   overflow: hidden;
 
@@ -200,12 +264,10 @@
 
 .qButton:hover:enabled {
   transform: translateY(-1px);
-  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
 }
 
 .qButton:active:enabled {
   transform: translateY(0px);
-  box-shadow: none;
 }
 
 .qButton:disabled {
@@ -213,10 +275,12 @@
   opacity: 0.55;
 }
 
+/* thumb zostawiamy czytelny (bez glass),
+   ale możesz też dodać glass jeśli chcesz */
 .qThumb {
   position: relative;
   overflow: hidden;
-  background-color: var(--black-0765);
+  background-color: rgba(0, 0, 0, 0.25);
   border-right: none;
 }
 
@@ -231,10 +295,10 @@
 .qText {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: left;
 
   padding: 22px 24px;
-  text-align: center;
+  text-align: left;
 
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   font-weight: 400;
@@ -302,7 +366,8 @@
   width: 64px;
   border-radius: 18px;
   border: 4px solid #fff;
-  background-color: var(--black-0765);
+
+  /* UWAGA: tło robi .liquidGlass */
   color: #fff;
 
   display: inline-flex;
@@ -316,12 +381,10 @@
 
 .iconBtn:hover:enabled {
   transform: translateY(-1px);
-  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
 }
 
 .iconBtn:active:enabled {
   transform: translateY(0px);
-  box-shadow: none;
 }
 
 .iconBtn:disabled {
