@@ -6,25 +6,36 @@ import kopernikPhoto from "../assets/images/kopernik.png";
 import mapPhoto from "../assets/images/mapa.png";
 import planetsPhoto from "../assets/images/planets.png";
 
+// Twoje SVG (BACK/PLAY/STOP) – użyte jako fallback / opcjonalnie
+import backButton from "../assets/images/undo-stroke.svg";
+import playButton from "../assets/images/play-circle.svg";
+import stopButton from "../assets/images/pause-circle.svg";
+
+// Boxicons via react-icons
+import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
+
 const ITEMS = [
   { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
-  { key: "2", label: "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?" },
-  { key: "3", label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?" },
-  { key: "4", label: "Do you know the title of Copernicus's work in which he presented his heliocentric theory?" },
-  { key: "5", label: "Do you know where Copernicus's tomb is located today?" },
-  { key: "6", label: "Do you know the name of the most famous astronomer born in Toruń?" },
-  { key: "7", label: "Do you know what traditional product is Toruń famous for, with a dedicated museum in the city?" },
-  { key: "8", label: "Do you know which river flows through Toruń?" },
-  { key: "9", label: "Do you know the name of the famous leaning structure in Toruń's Old Town?" },
-  { key: "10", label: "Do you know the name of the Toruń Old Town complex listed as a UNESCO World Heritage Site?" },
+  {
+    key: "2",
+    label:
+      "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?",
+  },
+  {
+    key: "3",
+    label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?",
+  },
 ];
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
 
   // UI state
-  const [selectedKey, setSelectedKey] = useState(null); // wybrany temat
-  const [stopped, setStopped] = useState(false); // STOP/PLAY toggle
+  const [selectedKey, setSelectedKey] = useState(null);
+  const [stopped, setStopped] = useState(false);
+
+  // animacje: sterujemy klasą "enter"
+  const [controlsVisible, setControlsVisible] = useState(false);
 
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
@@ -32,6 +43,7 @@ export default function Viewer() {
     return `http://${localip}:${port}`;
   }, []);
 
+  // Poll backend: status + auto-reset UI when backend says videoid=null
   useEffect(() => {
     let cancelled = false;
 
@@ -39,71 +51,97 @@ export default function Viewer() {
       try {
         const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
         if (!res.ok) throw new Error("Bad status");
-        if (!cancelled) setStatus("CONNECTED");
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        setStatus("CONNECTED");
+
+        // Jeśli wideo skończyło się i backend ma null -> Viewer wraca do domyślnego
+        const backendVideoId = data?.videoid ?? null;
+        if (backendVideoId === null && selectedKey !== null) {
+          setSelectedKey(null);
+          setStopped(false);
+        }
       } catch {
         if (!cancelled) setStatus("ERROR");
       }
     };
 
     ping();
-    const t = setInterval(ping, 2000);
+    const t = setInterval(ping, 1000);
 
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [backendBase]);
+  }, [backendBase, selectedKey]);
+
+  // kontrolki mają się ładnie pojawić po wybraniu kafla
+  useEffect(() => {
+    if (!selectedKey) {
+      setControlsVisible(false);
+      return;
+    }
+    // mikro-opóźnienie => CSS animacje startują pewniej
+    const t = setTimeout(() => setControlsVisible(true), 20);
+    return () => clearTimeout(t);
+  }, [selectedKey]);
 
   const connected = status === "CONNECTED";
 
   const sendSelection = async (itemKey) => {
-    try {
-      const url = `${backendBase}/post/${itemKey}`;
-      const res = await fetch(url, { method: "POST" });
-      if (!res.ok) throw new Error("POST failed");
-      setStatus("CONNECTED");
-    } catch {
-      setStatus("ERROR");
-    }
+    const url = `${backendBase}/post/${itemKey}`;
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) throw new Error("POST failed");
   };
 
   const sendControl = async (action) => {
-    // action: "stop" | "play" | "back"
+    const url = `${backendBase}/control/${action}`;
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) throw new Error("CONTROL failed");
+  };
+
+  const onPick = async (key) => {
     try {
-      const url = `${backendBase}/control/${action}`;
-      const res = await fetch(url, { method: "POST" });
-      if (!res.ok) throw new Error("CONTROL failed");
+      setSelectedKey(key);
+      setStopped(false);
+      await sendSelection(key);
       setStatus("CONNECTED");
     } catch {
       setStatus("ERROR");
     }
-  };
-
-  const onPick = async (key) => {
-    setSelectedKey(key);
-    setStopped(false);
-    await sendSelection(key);
   };
 
   const onStopPlay = async () => {
     if (!selectedKey) return;
 
-    if (!stopped) {
-      // STOP
-      setStopped(true);
-      await sendControl("stop");
-    } else {
-      // PLAY
-      setStopped(false);
-      await sendControl("play");
+    try {
+      if (!stopped) {
+        setStopped(true);
+        await sendControl("stop");
+      } else {
+        setStopped(false);
+        await sendControl("play");
+      }
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
     }
   };
 
   const onBack = async () => {
-    // BACK musi OBLIGATORYJNIE ustawić null i przywrócić Player do placeholdera
-    setSelectedKey(null);
-    setStopped(false);
-    await sendControl("back");
+    try {
+      // UI lokalnie od razu w domyślny
+      setSelectedKey(null);
+      setStopped(false);
+
+      // Backend OBLIGATORYJNIE null
+      await sendControl("back");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
   };
 
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
@@ -141,7 +179,6 @@ export default function Viewer() {
           </div>
         </div>
 
-        {/* QUESTIONS / SELECTED VIEW */}
         <section className={styles.questions}>
           {!selectedKey ? (
             ITEMS.map((it) => (
@@ -159,11 +196,14 @@ export default function Viewer() {
             ))
           ) : (
             <>
-              {/* Pokazujemy TYLKO wybrany temat */}
               <button
                 key={selectedItem?.key}
                 disabled
-                className={[styles.qButton, styles.qButtonSelected].join(" ")}
+                className={[
+                  styles.qButton,
+                  styles.qButtonSelected,
+                  styles.qButtonSelectedEnter,
+                ].join(" ")}
               >
                 <span className={styles.qThumb} aria-hidden="true">
                   <img src={planetsPhoto} alt="" />
@@ -171,22 +211,49 @@ export default function Viewer() {
                 <span className={styles.qText}>{selectedItem?.label}</span>
               </button>
 
-              {/* Panel sterowania */}
-              <div className={styles.controls}>
+              <div
+                className={[
+                  styles.controls,
+                  controlsVisible ? styles.controlsEnter : "",
+                ].join(" ")}
+              >
                 <button
                   onClick={onStopPlay}
                   disabled={!connected}
-                  className={styles.controlBtn}
+                  className={styles.iconBtn}
+                  aria-label={stopped ? "Play" : "Stop"}
+                  title={stopped ? "PLAY" : "STOP"}
                 >
-                  {stopped ? "PLAY" : "STOP"}
+                  {/* Boxicons */}
+                  {stopped ? (
+                    <BiPlayCircle className={styles.icon} />
+                  ) : (
+                    <BiPauseCircle className={styles.icon} />
+                  )}
+
+                  {/* Fallback Twoje SVG (możesz usunąć) */}
+                  <img
+                    className={styles.iconFallback}
+                    src={stopped ? playButton : stopButton}
+                    alt=""
+                    aria-hidden="true"
+                  />
                 </button>
 
                 <button
                   onClick={onBack}
                   disabled={!connected}
-                  className={styles.controlBtnSecondary}
+                  className={[styles.iconBtn, styles.iconBtnSecondary].join(" ")}
+                  aria-label="Back"
+                  title="BACK"
                 >
-                  BACK
+                  <BiUndo className={styles.icon} />
+                  <img
+                    className={styles.iconFallback}
+                    src={backButton}
+                    alt=""
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </>

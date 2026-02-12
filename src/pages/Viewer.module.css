@@ -57,7 +57,7 @@
   align-items: center;
   justify-content: center;
 
-  padding: 18px 28px; /* bez sztucznego dopychania w prawo */
+  padding: 18px 28px;
   text-align: center;
   background: radial-gradient(
     closest-side,
@@ -68,22 +68,22 @@
 
 .bannerTitle {
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-weight: 400; /* Anta jest display, wygląda lepiej bez “mega bold” */
+  font-weight: 400;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: clamp(26px, 3vw, 52px);
   line-height: 1;
   padding: 10px 0;
 
-  white-space: nowrap; /* jedna linia */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Years: left-bottom corner of the center area, not overlapping the map */
+/* Years */
 .bannerYears {
   position: absolute;
-  right: 18px;   /* zamiast left */
+  right: 18px;
   bottom: 14px;
 
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -94,7 +94,6 @@
 
   pointer-events: none;
 }
-
 
 /* Status pill */
 .status {
@@ -118,7 +117,7 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #2ecc71; /* CONNECTED */
+  background: #2ecc71;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
 }
 
@@ -184,7 +183,6 @@
   position: relative;
   overflow: hidden;
   background: #000;
-  /* USUNIĘTY BORDER RIGHT - nie ma białej linii na planecie */
   border-right: none;
 }
 
@@ -209,10 +207,122 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 
-  /* POWIĘKSZONY TEKST */
   font-size: 20px;
   line-height: 1.28;
 }
+
+/* ---------- SELECTED + ANIM ---------- */
+
+.qButtonSelected {
+  opacity: 1;
+}
+
+/* delikatne wejście dla wybranego kafla */
+.qButtonSelectedEnter {
+  animation: selectedCardIn 240ms ease-out both;
+}
+
+@keyframes selectedCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- CONTROLS (ICON BUTTONS) ---------- */
+
+.controls {
+  display: flex;
+  gap: 14px;
+  justify-content: flex-end;
+  align-items: center;
+
+  /* start: niewidoczne, animacja odpala po dodaniu klasy */
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.controlsEnter {
+  pointer-events: auto;
+  animation: controlsIn 260ms ease-out both;
+}
+
+@keyframes controlsIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Icon buttons */
+.iconBtn {
+  height: 64px;
+  width: 64px;
+  border-radius: 18px;
+  border: 4px solid #fff;
+  background: #000;
+  color: #fff;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  padding: 0;
+}
+
+.iconBtn:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
+}
+
+.iconBtn:active:enabled {
+  transform: translateY(0px);
+  box-shadow: none;
+}
+
+.iconBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* wersja “secondary” – subtelnie inna */
+.iconBtnSecondary {
+  opacity: 0.92;
+}
+
+/* Ikony (react-icons) */
+.icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+/* Fallback SVG */
+.iconFallback {
+  display: none;
+  width: 38px;
+  height: 38px;
+}
+
+/*
+  Jeśli chcesz szybko przełączyć na SVG zamiast Boxicons,
+  zakomentuj .icon i odkomentuj linie poniżej:
+
+  .icon { display: none; }
+  .iconFallback { display: block; }
+*/
 
 /* ---------- RESPONSIVE ---------- */
 
@@ -235,6 +345,10 @@
   .bannerInner {
     grid-template-columns: 160px 1fr 200px;
     min-height: 150px;
+  }
+
+  .controls {
+    justify-content: center;
   }
 }
 
@@ -259,5 +373,28 @@
   .qText {
     font-size: 16px;
     padding: 16px 14px;
+  }
+
+  .iconBtn {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+  }
+
+  .icon {
+    font-size: 36px;
+  }
+}
+
+/* Dostępność: jak ktoś ma redukcję animacji */
+@media (prefers-reduced-motion: reduce) {
+  .qButtonSelectedEnter,
+  .controlsEnter {
+    animation: none !important;
+  }
+  .controls {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
   }
 }

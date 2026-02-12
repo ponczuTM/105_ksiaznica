@@ -35,21 +35,15 @@ export default function Player() {
 
   const [apiVideoId, setApiVideoId] = useState(null);
 
-  // co faktycznie jest załadowane / grane
   const [playingSrc, setPlayingSrc] = useState(null);
   const [playingId, setPlayingId] = useState(null);
 
-  // UI
   const [isBuffering, setIsBuffering] = useState(false);
 
-  // sterowanie
   const [lastCommandId, setLastCommandId] = useState(0);
 
   const videoRef = useRef(null);
   const latestApiVideoIdRef = useRef(null);
-
-  // żeby nie odpalało w kółko tego samego po zakończeniu
-  const endedForIdRef = useRef(null);
 
   const hardResetToPlaceholder = useCallback(() => {
     const v = videoRef.current;
@@ -62,7 +56,6 @@ export default function Player() {
     setIsBuffering(false);
     setPlayingSrc(null);
     setPlayingId(null);
-    endedForIdRef.current = null;
   }, []);
 
   const stopVideo = useCallback(() => {
@@ -72,7 +65,6 @@ export default function Player() {
         v.pause();
       } catch {}
     }
-    // nie czyścimy src – to ma być STOP (pauza), a PLAY ma wznowić
   }, []);
 
   const playVideo = useCallback((forceRestart = false) => {
@@ -82,28 +74,22 @@ export default function Player() {
     const src = VIDEO_MAP[String(id)];
     if (!src) return;
 
-    // jeśli nic nie załadowane albo inny ID -> przeładuj
     if (playingId !== String(id)) {
       setPlayingSrc(src);
       setPlayingId(String(id));
-      endedForIdRef.current = null;
       return; // onLoadedData odpali play()
     }
 
-    // to samo wideo
     const v = videoRef.current;
     if (!v) return;
 
     try {
-      if (forceRestart || endedForIdRef.current === String(id)) {
-        v.currentTime = 0;
-        endedForIdRef.current = null;
-      }
+      if (forceRestart) v.currentTime = 0;
       v.play().catch(() => {});
     } catch {}
   }, [playingId]);
 
-  // Polling API
+  // Polling backend
   useEffect(() => {
     let cancelled = false;
 
@@ -113,16 +99,16 @@ export default function Player() {
         if (!res.ok) return;
         const data = await res.json();
 
+        if (cancelled) return;
+
         const incomingId = data?.videoid ?? null;
         const incomingCommand = data?.command ?? "NONE";
         const incomingCommandId = Number(data?.commandId ?? 0);
 
-        if (cancelled) return;
-
         setApiVideoId(incomingId);
         latestApiVideoIdRef.current = incomingId;
 
-        // 1) obsługa komend (tylko gdy commandId się zmienił)
+        // Komendy tylko gdy commandId się zmienił
         if (incomingCommandId !== lastCommandId) {
           setLastCommandId(incomingCommandId);
 
@@ -137,39 +123,24 @@ export default function Player() {
           }
 
           if (incomingCommand === "PLAY") {
-            // jeśli było zakończone, to start od początku
-            const wasEnded = endedForIdRef.current === String(incomingId);
-            playVideo(wasEnded);
+            // PLAY: jeśli nic nie gra -> odpal; jeśli gra -> wznów
+            if (incomingId === null) return;
+            const v = videoRef.current;
+            const forceRestart = !!(v && v.ended);
+            playVideo(forceRestart);
             return;
           }
         }
 
-        // 2) automatyczny start tylko gdy:
-        // - jest nowy ID
-        // - i nie jest to ID, które właśnie zakończyło się (żeby nie loopowało)
-        if (incomingId !== null) {
-          const idStr = String(incomingId);
-          const src = VIDEO_MAP[idStr];
+        // Auto-start gdy jest ID i nic nie jest załadowane
+        if (incomingId !== null && !playingSrc) {
+          const src = VIDEO_MAP[String(incomingId)];
           if (!src) return;
-
-          const endedForThis = endedForIdRef.current === idStr;
-
-          // nowy wybór (inny niż aktualnie grany)
-          if (playingId !== idStr) {
-            endedForIdRef.current = null;
-            setPlayingSrc(src);
-            setPlayingId(idStr);
-            return;
-          }
-
-          // to samo ID, ale jeśli nic nie gra (placeholder) i nie było ended -> odpal
-          if (!playingSrc && !endedForThis) {
-            setPlayingSrc(src);
-            setPlayingId(idStr);
-          }
+          setPlayingSrc(src);
+          setPlayingId(String(incomingId));
         }
       } catch {
-        // silent fail
+        // silent
       }
     };
 
@@ -180,17 +151,27 @@ export default function Player() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [backendBase, lastCommandId, hardResetToPlaceholder, stopVideo, playVideo, playingId, playingSrc]);
+  }, [backendBase, lastCommandId, hardResetToPlaceholder, stopVideo, playVideo, playingSrc]);
 
-  // Wideo zakończone
-  const handleEnded = useCallback(() => {
-    if (playingId) endedForIdRef.current = playingId;
+  // Wideo zakończone: 1) lokalnie placeholder, 2) POST /ended -> backend ustawia null i emituje BACK
+  const handleEnded = useCallback(async () => {
+    const endedId = playingId;
 
-    // wracamy do okna domyślnego (tak jak u Ciebie)
+    // lokalnie od razu wróć do placeholdera
     setPlayingSrc(null);
     setPlayingId(null);
     setIsBuffering(false);
-  }, [playingId]);
+
+    try {
+      await fetch(`${backendBase}/ended`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoid: endedId }),
+      });
+    } catch {
+      // nawet jak nie dojdzie, lokalnie i tak wróciło do placeholdera
+    }
+  }, [backendBase, playingId]);
 
   const handleWaiting = useCallback(() => setIsBuffering(true), []);
   const handleCanPlay = useCallback(() => setIsBuffering(false), []);

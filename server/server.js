@@ -6,10 +6,6 @@ import path from "path";
 import dgram from "dgram";
 import { fileURLToPath } from "url";
 
-/**
- * Pobiera IP LAN:
- * tworzymy UDP socket i "łączymy się" z 8.8.8.8, żeby system wybrał interfejs.
- */
 function getLocalIp() {
   return new Promise((resolve, reject) => {
     const socket = dgram.createSocket("udp4");
@@ -31,11 +27,6 @@ function getLocalIp() {
   });
 }
 
-/**
- * ZAWSZE nadpisuje ../.env:
- * VITE_BACKEND_IP=<ip>
- * VITE_BACKEND_PORT=3001
- */
 function writeEnvFile(ip, port = 3001) {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -50,7 +41,6 @@ function writeEnvFile(ip, port = 3001) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS totalnie otwarte
 app.use(
   cors({
     origin: "*",
@@ -59,7 +49,6 @@ app.use(
   })
 );
 
-// Preflight
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -67,12 +56,6 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-/**
- * Stan backendu:
- * - currentVideoId: "1".."10" albo null
- * - command: "PLAY" | "STOP" | "BACK" | "NONE"
- * - commandId: rośnie za każdym razem, żeby Player wykrywał "nową komendę"
- */
 let currentVideoId = null;
 let command = "NONE";
 let commandId = 0;
@@ -82,16 +65,12 @@ function bumpCommand(newCommand) {
   commandId += 1;
 }
 
-// GET: Player polluje ten endpoint
+// GET: stan
 app.get("/get", (req, res) => {
-  res.json({
-    videoid: currentVideoId,
-    command,
-    commandId,
-  });
+  res.json({ videoid: currentVideoId, command, commandId });
 });
 
-// POST: wybór wideo z Viewera
+// Viewer wybiera wideo
 app.post("/post/:videoId", (req, res) => {
   const { videoId } = req.params;
 
@@ -110,18 +89,30 @@ app.post("/control/stop", (req, res) => {
   res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
-// PLAY (wznów / odpal)
+// PLAY
 app.post("/control/play", (req, res) => {
   console.log("Viewer -> PLAY");
   bumpCommand("PLAY");
   res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
-// BACK: OBLIGATORYJNIE videoid = null + komenda BACK
+// BACK: null
 app.post("/control/back", (req, res) => {
   console.log("Viewer -> BACK (ustawiam videoid=null)");
   currentVideoId = null;
   bumpCommand("BACK");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// Player -> wideo się skończyło: backend ma wrócić do null i wysłać BACK
+app.post("/ended", (req, res) => {
+  const endedId = req.body?.videoid ?? null;
+
+  console.log(`Player -> ENDED (videoid=${endedId}) -> ustawiam videoid=null`);
+
+  currentVideoId = null;
+  bumpCommand("BACK");
+
   res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
@@ -142,6 +133,7 @@ app.post("/control/back", (req, res) => {
       console.log(`POST -> http://0.0.0.0:${PORT}/control/stop`);
       console.log(`POST -> http://0.0.0.0:${PORT}/control/play`);
       console.log(`POST -> http://0.0.0.0:${PORT}/control/back`);
+      console.log(`POST -> http://0.0.0.0:${PORT}/ended`);
     });
   } catch (err) {
     console.error("Nie udało się wykryć IP / zapisać .env:", err);
