@@ -22,6 +22,10 @@ const ITEMS = [
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
 
+  // UI state
+  const [selectedKey, setSelectedKey] = useState(null); // wybrany temat
+  const [stopped, setStopped] = useState(false); // STOP/PLAY toggle
+
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
     const port = import.meta.env.VITE_BACKEND_PORT;
@@ -33,7 +37,7 @@ export default function Viewer() {
 
     const ping = async () => {
       try {
-        const res = await fetch(`${backendBase}/get`);
+        const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
         if (!res.ok) throw new Error("Bad status");
         if (!cancelled) setStatus("CONNECTED");
       } catch {
@@ -50,6 +54,8 @@ export default function Viewer() {
     };
   }, [backendBase]);
 
+  const connected = status === "CONNECTED";
+
   const sendSelection = async (itemKey) => {
     try {
       const url = `${backendBase}/post/${itemKey}`;
@@ -61,7 +67,46 @@ export default function Viewer() {
     }
   };
 
-  const connected = status === "CONNECTED";
+  const sendControl = async (action) => {
+    // action: "stop" | "play" | "back"
+    try {
+      const url = `${backendBase}/control/${action}`;
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) throw new Error("CONTROL failed");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
+
+  const onPick = async (key) => {
+    setSelectedKey(key);
+    setStopped(false);
+    await sendSelection(key);
+  };
+
+  const onStopPlay = async () => {
+    if (!selectedKey) return;
+
+    if (!stopped) {
+      // STOP
+      setStopped(true);
+      await sendControl("stop");
+    } else {
+      // PLAY
+      setStopped(false);
+      await sendControl("play");
+    }
+  };
+
+  const onBack = async () => {
+    // BACK musi OBLIGATORYJNIE ustawić null i przywrócić Player do placeholdera
+    setSelectedKey(null);
+    setStopped(false);
+    await sendControl("back");
+  };
+
+  const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
 
   return (
     <div className={styles.viewer}>
@@ -96,21 +141,56 @@ export default function Viewer() {
           </div>
         </div>
 
-        {/* FULL-WIDTH QUESTIONS */}
+        {/* QUESTIONS / SELECTED VIEW */}
         <section className={styles.questions}>
-          {ITEMS.map((it) => (
-            <button
-              key={it.key}
-              onClick={() => sendSelection(it.key)}
-              disabled={!connected}
-              className={styles.qButton}
-            >
-              <span className={styles.qThumb} aria-hidden="true">
-                <img src={planetsPhoto} alt="" />
-              </span>
-              <span className={styles.qText}>{it.label}</span>
-            </button>
-          ))}
+          {!selectedKey ? (
+            ITEMS.map((it) => (
+              <button
+                key={it.key}
+                onClick={() => onPick(it.key)}
+                disabled={!connected}
+                className={styles.qButton}
+              >
+                <span className={styles.qThumb} aria-hidden="true">
+                  <img src={planetsPhoto} alt="" />
+                </span>
+                <span className={styles.qText}>{it.label}</span>
+              </button>
+            ))
+          ) : (
+            <>
+              {/* Pokazujemy TYLKO wybrany temat */}
+              <button
+                key={selectedItem?.key}
+                disabled
+                className={[styles.qButton, styles.qButtonSelected].join(" ")}
+              >
+                <span className={styles.qThumb} aria-hidden="true">
+                  <img src={planetsPhoto} alt="" />
+                </span>
+                <span className={styles.qText}>{selectedItem?.label}</span>
+              </button>
+
+              {/* Panel sterowania */}
+              <div className={styles.controls}>
+                <button
+                  onClick={onStopPlay}
+                  disabled={!connected}
+                  className={styles.controlBtn}
+                >
+                  {stopped ? "PLAY" : "STOP"}
+                </button>
+
+                <button
+                  onClick={onBack}
+                  disabled={!connected}
+                  className={styles.controlBtnSecondary}
+                >
+                  BACK
+                </button>
+              </div>
+            </>
+          )}
         </section>
       </div>
     </div>

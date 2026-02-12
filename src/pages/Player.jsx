@@ -34,57 +34,74 @@ export default function Player() {
   }, []);
 
   const [apiVideoId, setApiVideoId] = useState(null);
+
+  // co faktycznie jest załadowane / grane
   const [playingSrc, setPlayingSrc] = useState(null);
   const [playingId, setPlayingId] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  // UI
   const [isBuffering, setIsBuffering] = useState(false);
 
+  // sterowanie
+  const [lastCommandId, setLastCommandId] = useState(0);
+
   const videoRef = useRef(null);
-  const preloadedVideos = useRef(new Map());
-  const currentPreloadRef = useRef(null);
+  const latestApiVideoIdRef = useRef(null);
 
-  // Preloadowanie wideo w tle
-  const preloadVideo = useCallback((videoId) => {
-    if (!videoId || preloadedVideos.current.has(videoId)) return;
+  // żeby nie odpalało w kółko tego samego po zakończeniu
+  const endedForIdRef = useRef(null);
 
-    const src = VIDEO_MAP[String(videoId)];
+  const hardResetToPlaceholder = useCallback(() => {
+    const v = videoRef.current;
+    if (v) {
+      try {
+        v.pause();
+        v.currentTime = 0;
+      } catch {}
+    }
+    setIsBuffering(false);
+    setPlayingSrc(null);
+    setPlayingId(null);
+    endedForIdRef.current = null;
+  }, []);
+
+  const stopVideo = useCallback(() => {
+    const v = videoRef.current;
+    if (v) {
+      try {
+        v.pause();
+      } catch {}
+    }
+    // nie czyścimy src – to ma być STOP (pauza), a PLAY ma wznowić
+  }, []);
+
+  const playVideo = useCallback((forceRestart = false) => {
+    const id = latestApiVideoIdRef.current;
+    if (!id) return;
+
+    const src = VIDEO_MAP[String(id)];
     if (!src) return;
 
-    //Tworzenie ukrytego elementu video do preloadowania
-    const videoElement = document.createElement("video");
-    videoElement.src = src;
-    videoElement.preload = "auto";
-    videoElement.playsInline = true;
-    
-    // Rozpoczęcie ładowania
-    videoElement.load();
-
-    // Zapisanie referencji
-    preloadedVideos.current.set(videoId, {
-      element: videoElement,
-      src: src,
-      loaded: false
-    });
-
-    // Event listeners dla preloadingu
-    videoElement.addEventListener("canplaythrough", () => {
-      const entry = preloadedVideos.current.get(videoId);
-      if (entry) {
-        entry.loaded = true;
-      }
-    }, { once: true });
-
-    // Cleanup starszych preloadów (max 3 w pamięci)
-    if (preloadedVideos.current.size > 3) {
-      const firstKey = preloadedVideos.current.keys().next().value;
-      const oldEntry = preloadedVideos.current.get(firstKey);
-      if (oldEntry?.element) {
-        oldEntry.element.src = "";
-        oldEntry.element.load();
-      }
-      preloadedVideos.current.delete(firstKey);
+    // jeśli nic nie załadowane albo inny ID -> przeładuj
+    if (playingId !== String(id)) {
+      setPlayingSrc(src);
+      setPlayingId(String(id));
+      endedForIdRef.current = null;
+      return; // onLoadedData odpali play()
     }
-  }, []);
+
+    // to samo wideo
+    const v = videoRef.current;
+    if (!v) return;
+
+    try {
+      if (forceRestart || endedForIdRef.current === String(id)) {
+        v.currentTime = 0;
+        endedForIdRef.current = null;
+      }
+      v.play().catch(() => {});
+    } catch {}
+  }, [playingId]);
 
   // Polling API
   useEffect(() => {
@@ -96,27 +113,61 @@ export default function Player() {
         if (!res.ok) return;
         const data = await res.json();
 
-        const incoming = data?.videoid ?? null;
-        if (!cancelled) {
-          setApiVideoId(incoming);
+        const incomingId = data?.videoid ?? null;
+        const incomingCommand = data?.command ?? "NONE";
+        const incomingCommandId = Number(data?.commandId ?? 0);
 
-          // Preloadowanie nowego wideo jeśli się zmienił ID
-          if (incoming !== null && incoming !== playingId) {
-            preloadVideo(incoming);
+        if (cancelled) return;
+
+        setApiVideoId(incomingId);
+        latestApiVideoIdRef.current = incomingId;
+
+        // 1) obsługa komend (tylko gdy commandId się zmienił)
+        if (incomingCommandId !== lastCommandId) {
+          setLastCommandId(incomingCommandId);
+
+          if (incomingCommand === "BACK") {
+            hardResetToPlaceholder();
+            return;
+          }
+
+          if (incomingCommand === "STOP") {
+            stopVideo();
+            return;
+          }
+
+          if (incomingCommand === "PLAY") {
+            // jeśli było zakończone, to start od początku
+            const wasEnded = endedForIdRef.current === String(incomingId);
+            playVideo(wasEnded);
+            return;
           }
         }
 
-        // Jeśli już gra coś, nie przerywaj
-        if (isPlaying) return;
-        if (incoming === null) return;
+        // 2) automatyczny start tylko gdy:
+        // - jest nowy ID
+        // - i nie jest to ID, które właśnie zakończyło się (żeby nie loopowało)
+        if (incomingId !== null) {
+          const idStr = String(incomingId);
+          const src = VIDEO_MAP[idStr];
+          if (!src) return;
 
-        const src = VIDEO_MAP[String(incoming)];
-        if (!src) return;
+          const endedForThis = endedForIdRef.current === idStr;
 
-        // Odtwarzanie wideo
-        setPlayingSrc(src);
-        setPlayingId(String(incoming));
-        setIsPlaying(true);
+          // nowy wybór (inny niż aktualnie grany)
+          if (playingId !== idStr) {
+            endedForIdRef.current = null;
+            setPlayingSrc(src);
+            setPlayingId(idStr);
+            return;
+          }
+
+          // to samo ID, ale jeśli nic nie gra (placeholder) i nie było ended -> odpal
+          if (!playingSrc && !endedForThis) {
+            setPlayingSrc(src);
+            setPlayingId(idStr);
+          }
+        }
       } catch {
         // silent fail
       }
@@ -129,47 +180,26 @@ export default function Player() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [backendBase, isPlaying, playingId, preloadVideo]);
+  }, [backendBase, lastCommandId, hardResetToPlaceholder, stopVideo, playVideo, playingId, playingSrc]);
 
-  // Obsługa zakończenia wideo
+  // Wideo zakończone
   const handleEnded = useCallback(() => {
-    setIsPlaying(false);
+    if (playingId) endedForIdRef.current = playingId;
+
+    // wracamy do okna domyślnego (tak jak u Ciebie)
     setPlayingSrc(null);
     setPlayingId(null);
     setIsBuffering(false);
-  }, []);
+  }, [playingId]);
 
-  // Obsługa eventów bufferowania
-  const handleWaiting = useCallback(() => {
-    setIsBuffering(true);
-  }, []);
-
-  const handleCanPlay = useCallback(() => {
-    setIsBuffering(false);
-  }, []);
+  const handleWaiting = useCallback(() => setIsBuffering(true), []);
+  const handleCanPlay = useCallback(() => setIsBuffering(false), []);
 
   const handleLoadedData = useCallback(() => {
     setIsBuffering(false);
-    // Wymuszenie odtwarzania
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Automatyczne odtwarzanie zablokowane przez przeglądarkę
-      });
-    }
-  }, []);
-
-  // Cleanup przy unmount
-  useEffect(() => {
-    return () => {
-      // Zwolnienie pamięci
-      preloadedVideos.current.forEach((entry) => {
-        if (entry.element) {
-          entry.element.src = "";
-          entry.element.load();
-        }
-      });
-      preloadedVideos.current.clear();
-    };
+    const v = videoRef.current;
+    if (!v) return;
+    v.play().catch(() => {});
   }, []);
 
   return (
@@ -200,4 +230,4 @@ export default function Player() {
       </div>
     </div>
   );
-} 
+}

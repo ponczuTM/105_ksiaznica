@@ -3,12 +3,11 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import os from "os";
 import dgram from "dgram";
 import { fileURLToPath } from "url";
 
 /**
- * Pobiera IP LAN w stylu "pythonowego" tricku:
+ * Pobiera IP LAN:
  * tworzymy UDP socket i "łączymy się" z 8.8.8.8, żeby system wybrał interfejs.
  */
 function getLocalIp() {
@@ -19,7 +18,6 @@ function getLocalIp() {
       reject(err);
     });
 
-    // Port bez znaczenia — nie wysyłamy nic, tylko wymuszamy routing
     socket.connect(80, "8.8.8.8", () => {
       try {
         const addr = socket.address();
@@ -34,7 +32,7 @@ function getLocalIp() {
 }
 
 /**
- * ZAWSZE nadpisuje ../.env w formacie:
+ * ZAWSZE nadpisuje ../.env:
  * VITE_BACKEND_IP=<ip>
  * VITE_BACKEND_PORT=3001
  */
@@ -61,43 +59,73 @@ app.use(
   })
 );
 
-// Preflight dla każdej ścieżki - bez app.options("*")
+// Preflight
 app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
 app.use(express.json());
 
+/**
+ * Stan backendu:
+ * - currentVideoId: "1".."10" albo null
+ * - command: "PLAY" | "STOP" | "BACK" | "NONE"
+ * - commandId: rośnie za każdym razem, żeby Player wykrywał "nową komendę"
+ */
 let currentVideoId = null;
-let resetTimer = null;
+let command = "NONE";
+let commandId = 0;
 
-// GET: backend cały czas wystawia aktualny stan
+function bumpCommand(newCommand) {
+  command = newCommand;
+  commandId += 1;
+}
+
+// GET: Player polluje ten endpoint
 app.get("/get", (req, res) => {
-  res.json({ videoid: currentVideoId });
+  res.json({
+    videoid: currentVideoId,
+    command,
+    commandId,
+  });
 });
 
-// POST: ustaw videoId na 3 sekundy i wróć do null
+// POST: wybór wideo z Viewera
 app.post("/post/:videoId", (req, res) => {
   const { videoId } = req.params;
 
-  console.log(`otrzymałem videoId: ${videoId}`);
+  console.log(`Viewer -> wybór videoId: ${videoId}`);
 
   currentVideoId = String(videoId);
+  bumpCommand("PLAY");
 
-  if (resetTimer) clearTimeout(resetTimer);
-
-  resetTimer = setTimeout(() => {
-    currentVideoId = null;
-    console.log("ustawiam videoId na null");
-  }, 3000);
-
-  res.json({ ok: true, videoid: currentVideoId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
-// START: najpierw zapisz .env, potem odpal serwer
+// STOP
+app.post("/control/stop", (req, res) => {
+  console.log("Viewer -> STOP");
+  bumpCommand("STOP");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// PLAY (wznów / odpal)
+app.post("/control/play", (req, res) => {
+  console.log("Viewer -> PLAY");
+  bumpCommand("PLAY");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// BACK: OBLIGATORYJNIE videoid = null + komenda BACK
+app.post("/control/back", (req, res) => {
+  console.log("Viewer -> BACK (ustawiam videoid=null)");
+  currentVideoId = null;
+  bumpCommand("BACK");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// START
 (async () => {
   try {
     const ip = await getLocalIp();
@@ -107,11 +135,13 @@ app.post("/post/:videoId", (req, res) => {
     console.log(`VITE_BACKEND_IP=${ip}`);
     console.log(`VITE_BACKEND_PORT=3001`);
 
-    // Ważne: słuchaj na 0.0.0.0 żeby było dostępne po LAN
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`API działa na porcie ${PORT}`);
       console.log(`GET  -> http://0.0.0.0:${PORT}/get`);
       console.log(`POST -> http://0.0.0.0:${PORT}/post/:videoId`);
+      console.log(`POST -> http://0.0.0.0:${PORT}/control/stop`);
+      console.log(`POST -> http://0.0.0.0:${PORT}/control/play`);
+      console.log(`POST -> http://0.0.0.0:${PORT}/control/back`);
     });
   } catch (err) {
     console.error("Nie udało się wykryć IP / zapisać .env:", err);
