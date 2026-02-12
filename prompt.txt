@@ -1,0 +1,680 @@
+mam dla Ciebie trudne zadanie. Mam taki Viewer.jsx:
+// Viewer.jsx
+import { useEffect, useMemo, useState } from "react";
+import styles from "./Viewer.module.css";
+
+import kopernikPhoto from "../assets/images/kopernik.png";
+import mapPhoto from "../assets/images/mapa.png";
+import planetsPhoto from "../assets/images/planets.png";
+
+// Twoje SVG (BACK/PLAY/STOP) – użyte jako fallback / opcjonalnie
+import backButton from "../assets/images/undo-stroke.svg";
+import playButton from "../assets/images/play-circle.svg";
+import stopButton from "../assets/images/pause-circle.svg";
+
+// Boxicons via react-icons
+import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
+
+const ITEMS = [
+  { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
+  {
+    key: "2",
+    label:
+      "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?",
+  },
+  {
+    key: "3",
+    label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?",
+  },
+];
+
+export default function Viewer() {
+  const [status, setStatus] = useState("DISCONNECTED");
+
+  // UI state
+  const [selectedKey, setSelectedKey] = useState(null);
+  const [stopped, setStopped] = useState(false);
+
+  // animacje: sterujemy klasą "enter"
+  const [controlsVisible, setControlsVisible] = useState(false);
+
+  const backendBase = useMemo(() => {
+    const localip = import.meta.env.VITE_BACKEND_IP;
+    const port = import.meta.env.VITE_BACKEND_PORT;
+    return `http://${localip}:${port}`;
+  }, []);
+
+  // Poll backend: status + auto-reset UI when backend says videoid=null
+  useEffect(() => {
+    let cancelled = false;
+
+    const ping = async () => {
+      try {
+        const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Bad status");
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        setStatus("CONNECTED");
+
+        // Jeśli wideo skończyło się i backend ma null -> Viewer wraca do domyślnego
+        const backendVideoId = data?.videoid ?? null;
+        if (backendVideoId === null && selectedKey !== null) {
+          setSelectedKey(null);
+          setStopped(false);
+        }
+      } catch {
+        if (!cancelled) setStatus("ERROR");
+      }
+    };
+
+    ping();
+    const t = setInterval(ping, 1000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [backendBase, selectedKey]);
+
+  // kontrolki mają się ładnie pojawić po wybraniu kafla
+  useEffect(() => {
+    if (!selectedKey) {
+      setControlsVisible(false);
+      return;
+    }
+    // mikro-opóźnienie => CSS animacje startują pewniej
+    const t = setTimeout(() => setControlsVisible(true), 20);
+    return () => clearTimeout(t);
+  }, [selectedKey]);
+
+  const connected = status === "CONNECTED";
+
+  const sendSelection = async (itemKey) => {
+    const url = `${backendBase}/post/${itemKey}`;
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) throw new Error("POST failed");
+  };
+
+  const sendControl = async (action) => {
+    const url = `${backendBase}/control/${action}`;
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) throw new Error("CONTROL failed");
+  };
+
+  const onPick = async (key) => {
+    try {
+      setSelectedKey(key);
+      setStopped(false);
+      await sendSelection(key);
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
+
+  const onStopPlay = async () => {
+    if (!selectedKey) return;
+
+    try {
+      if (!stopped) {
+        setStopped(true);
+        await sendControl("stop");
+      } else {
+        setStopped(false);
+        await sendControl("play");
+      }
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
+
+  const onBack = async () => {
+    try {
+      // UI lokalnie od razu w domyślny
+      setSelectedKey(null);
+      setStopped(false);
+
+      // Backend OBLIGATORYJNIE null
+      await sendControl("back");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
+
+  const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
+
+  return (
+    <div className={styles.viewer}>
+      <div className={styles.content}>
+        {/* TOP BANNER */}
+        <div className={styles.banner}>
+          <div className={styles.bannerInner}>
+            <div className={styles.bannerLeftImg}>
+              <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+            </div>
+
+            <div className={styles.bannerCenter}>
+              <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
+              <div className={styles.bannerYears}>1473–1543</div>
+            </div>
+
+            <div className={styles.bannerRightImg}>
+              <img src={mapPhoto} alt="Map / diagram" />
+            </div>
+          </div>
+
+          {/* STATUS pill */}
+          <div className={styles.status}>
+            <span
+              className={[
+                styles.statusDot,
+                status === "DISCONNECTED" ? styles.disconnected : "",
+                status === "ERROR" ? styles.error : "",
+              ].join(" ")}
+            />
+            <span className={styles.statusText}>{status}</span>
+          </div>
+        </div>
+
+        <section className={styles.questions}>
+          {!selectedKey ? (
+            ITEMS.map((it) => (
+              <button
+                key={it.key}
+                onClick={() => onPick(it.key)}
+                disabled={!connected}
+                className={styles.qButton}
+              >
+                <span className={styles.qThumb} aria-hidden="true">
+                  <img src={planetsPhoto} alt="" />
+                </span>
+                <span className={styles.qText}>{it.label}</span>
+              </button>
+            ))
+          ) : (
+            <>
+              <button
+                key={selectedItem?.key}
+                disabled
+                className={[
+                  styles.qButton,
+                  styles.qButtonSelected,
+                  styles.qButtonSelectedEnter,
+                ].join(" ")}
+              >
+                <span className={styles.qThumb} aria-hidden="true">
+                  <img src={planetsPhoto} alt="" />
+                </span>
+                <span className={styles.qText}>{selectedItem?.label}</span>
+              </button>
+
+              <div
+                className={[
+                  styles.controls,
+                  controlsVisible ? styles.controlsEnter : "",
+                ].join(" ")}
+              >
+                <button
+                  onClick={onStopPlay}
+                  disabled={!connected}
+                  className={styles.iconBtn}
+                  aria-label={stopped ? "Play" : "Stop"}
+                  title={stopped ? "PLAY" : "STOP"}
+                >
+                  {/* Boxicons */}
+                  {stopped ? (
+                    <BiPlayCircle className={styles.icon} />
+                  ) : (
+                    <BiPauseCircle className={styles.icon} />
+                  )}
+
+                  {/* Fallback Twoje SVG (możesz usunąć) */}
+                  <img
+                    className={styles.iconFallback}
+                    src={stopped ? playButton : stopButton}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                </button>
+
+                <button
+                  onClick={onBack}
+                  disabled={!connected}
+                  className={[styles.iconBtn, styles.iconBtnSecondary].join(" ")}
+                  aria-label="Back"
+                  title="BACK"
+                >
+                  <BiUndo className={styles.icon} />
+                  <img
+                    className={styles.iconFallback}
+                    src={backButton}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+
+I taki Viewer.module.css:
+@import url("https://fonts.googleapis.com/css2?family=Anta&display=swap");
+
+.viewer {
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  padding: 28px 20px;
+  box-sizing: border-box;
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.content {
+  width: 100%;
+  max-width: 1320px;
+}
+
+/* ---------- TOP BANNER ---------- */
+
+.banner {
+  position: relative;
+  margin-bottom: 22px;
+}
+
+.bannerInner {
+  border: 4px solid #fff;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #000;
+
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  align-items: stretch;
+  min-height: 170px;
+}
+
+.bannerLeftImg,
+.bannerRightImg {
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.bannerLeftImg img,
+.bannerRightImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Center: title must be centered, single line */
+.bannerCenter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 18px 28px;
+  text-align: center;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.06),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.bannerTitle {
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: clamp(26px, 3vw, 52px);
+  line-height: 1;
+  padding: 10px 0;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Years */
+.bannerYears {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  font-size: 18px;
+  opacity: 0.95;
+
+  pointer-events: none;
+}
+
+/* Status pill */
+.status {
+  position: absolute;
+  right: 16px;
+  bottom: -14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 14px;
+  background: #000;
+  border: 3px solid #fff;
+  border-radius: 999px;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.statusDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #2ecc71;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
+}
+
+.disconnected {
+  background: #ffffff;
+  opacity: 0.55;
+}
+
+.error {
+  background: #ff3b30;
+}
+
+.statusText {
+  letter-spacing: 0.12em;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+/* ---------- QUESTIONS (FULL WIDTH) ---------- */
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qButton {
+  width: 100%;
+  border: 4px solid #fff;
+  background: #000;
+  color: #fff;
+  border-radius: 26px;
+  overflow: hidden;
+
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  align-items: stretch;
+
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.qButton:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
+}
+
+.qButton:active:enabled {
+  transform: translateY(0px);
+  box-shadow: none;
+}
+
+.qButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.qThumb {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border-right: none;
+}
+
+.qThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.05);
+}
+
+.qText {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 22px 24px;
+  text-align: center;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  font-size: 20px;
+  line-height: 1.28;
+}
+
+/* ---------- SELECTED + ANIM ---------- */
+
+.qButtonSelected {
+  opacity: 1;
+}
+
+/* delikatne wejście dla wybranego kafla */
+.qButtonSelectedEnter {
+  animation: selectedCardIn 240ms ease-out both;
+}
+
+@keyframes selectedCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- CONTROLS (ICON BUTTONS) ---------- */
+
+.controls {
+  display: flex;
+  gap: 14px;
+  justify-content: flex-end;
+  align-items: center;
+
+  /* start: niewidoczne, animacja odpala po dodaniu klasy */
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.controlsEnter {
+  pointer-events: auto;
+  animation: controlsIn 260ms ease-out both;
+}
+
+@keyframes controlsIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Icon buttons */
+.iconBtn {
+  height: 64px;
+  width: 64px;
+  border-radius: 18px;
+  border: 4px solid #fff;
+  background: #000;
+  color: #fff;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  padding: 0;
+}
+
+.iconBtn:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
+}
+
+.iconBtn:active:enabled {
+  transform: translateY(0px);
+  box-shadow: none;
+}
+
+.iconBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* wersja “secondary” – subtelnie inna */
+.iconBtnSecondary {
+  opacity: 0.92;
+}
+
+/* Ikony (react-icons) */
+.icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+/* Fallback SVG */
+.iconFallback {
+  display: none;
+  width: 38px;
+  height: 38px;
+}
+
+/*
+  Jeśli chcesz szybko przełączyć na SVG zamiast Boxicons,
+  zakomentuj .icon i odkomentuj linie poniżej:
+
+  .icon { display: none; }
+  .iconFallback { display: block; }
+*/
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 1100px) {
+  .bannerInner {
+    grid-template-columns: 180px 1fr 220px;
+  }
+  .qButton {
+    grid-template-columns: 150px 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .status {
+    position: static;
+    margin: 12px 0 0 auto;
+    width: fit-content;
+  }
+
+  .bannerInner {
+    grid-template-columns: 160px 1fr 200px;
+    min-height: 150px;
+  }
+
+  .controls {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .bannerInner {
+    grid-template-columns: 120px 1fr 150px;
+    min-height: 130px;
+    border-radius: 22px;
+  }
+
+  .bannerYears {
+    left: 14px;
+    bottom: 10px;
+    font-size: 14px;
+  }
+
+  .qButton {
+    border-radius: 22px;
+    grid-template-columns: 120px 1fr;
+  }
+
+  .qText {
+    font-size: 16px;
+    padding: 16px 14px;
+  }
+
+  .iconBtn {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+  }
+
+  .icon {
+    font-size: 36px;
+  }
+}
+
+/* Dostępność: jak ktoś ma redukcję animacji */
+@media (prefers-reduced-motion: reduce) {
+  .qButtonSelectedEnter,
+  .controlsEnter {
+    animation: none !important;
+  }
+  .controls {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
+
+Teraz chciałbym aby w tle pojawiały się latające planety - co jakiś PiAlignCenterHorizontalSimple, powoli, od lewego górnego rogu w kierunku prawego górnego, powoli, +-30 stopni. Mam takie obrazy:
+
+import sunFlat from "../assets/images/sun.jpg";
+import earthFlat from "../assets/images/earth.jpg";
+import marsFlat from "../assets/images/mars.jpg";
+
+program ma: Zmapować je na kule, zanimować je tak aby leciały i kręciły się wokół własnej osi delikatnie - chyba wiesz o co mi chodzi. JEDNA PO DRUGIEJ LOSOWO - NIGDY WIĘCEJ NIŻ JEDNA JEDNOCZEŚNIE. MA TO WYGLąDAĆ TAK JAK BYŚMY Z KAMERą LECIELI PRZEZ KOSMOS.
+
+POKAŻ CAŁE KODY
