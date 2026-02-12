@@ -1,259 +1,263 @@
-@import url('https://fonts.googleapis.com/css2?family=Anta&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Anta&display=swap");
 
 .viewer {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  font-family: 'Anta', sans-serif;
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  padding: 28px 20px;
+  box-sizing: border-box;
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
-/* Animowane tło */
-.bgPhoto {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  animation: breathe 5s ease-in-out infinite;
-  z-index: 1;
-}
-
-@keyframes breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-}
-
-/* Warstwa przyciemniająca (lżejsza — inaczej blur nie ma co rozmywać) */
-.bgOverlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.25);
-  z-index: 2;
-}
-
-/* Główna zawartość */
 .content {
+  width: 100%;
+  max-width: 1320px;
+}
+
+/* ---------- TOP BANNER ---------- */
+
+.banner {
   position: relative;
-  z-index: 3;
+  margin-bottom: 22px;
+}
+
+.bannerInner {
+  border: 4px solid #fff;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #000;
+
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  align-items: stretch;
+  min-height: 170px;
+}
+
+.bannerLeftImg,
+.bannerRightImg {
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.bannerLeftImg img,
+.bannerRightImg img {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 3rem 2rem;
-  box-sizing: border-box;
+  object-fit: cover;
+  display: block;
 }
 
-/* Header */
-.header {
-  text-align: center;
-  margin-bottom: 3rem;
-  width: 100%;
-}
-
-.title {
-  font-size: 4rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0 0 1.5rem 0;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-  letter-spacing: 2px;
-}
-
-/* Status */
-.status {
+/* Center: title must be centered, single line */
+.bannerCenter {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+
+  padding: 18px 28px; /* bez sztucznego dopychania w prawo */
+  text-align: center;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.06),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.bannerTitle {
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400; /* Anta jest display, wygląda lepiej bez “mega bold” */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: clamp(26px, 3vw, 52px);
+  line-height: 1;
+  padding: 10px 0;
+
+  white-space: nowrap; /* jedna linia */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Years: left-bottom corner of the center area, not overlapping the map */
+.bannerYears {
+  position: absolute;
+  right: 18px;   /* zamiast left */
+  bottom: 14px;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  font-size: 18px;
+  opacity: 0.95;
+
+  pointer-events: none;
+}
+
+
+/* Status pill */
+.status {
+  position: absolute;
+  right: 16px;
+  bottom: -14px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 14px;
+  background: #000;
+  border: 3px solid #fff;
+  border-radius: 999px;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
 .statusDot {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background-color: #22c55e;
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.7);
-  transition: all 0.3s ease;
+  background: #2ecc71; /* CONNECTED */
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
 }
 
-.statusDot.disconnected {
-  background-color: #fbbf24;
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.7);
+.disconnected {
+  background: #ffffff;
+  opacity: 0.55;
 }
 
-.statusDot.error {
-  background-color: #ef4444;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+.error {
+  background: #ff3b30;
 }
 
 .statusText {
-  font-size: 1.5rem;
-  color: #ffffff;
-  font-weight: 500;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.12em;
+  font-weight: 400;
+  font-size: 12px;
 }
 
-/* Grid z przyciskami */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 2rem;
+/* ---------- QUESTIONS (FULL WIDTH) ---------- */
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qButton {
   width: 100%;
-  max-width: 1400px;
-  padding: 0 1rem;
-}
-
-/* ========================= */
-/* GLASS CARD jak SCREEN #2  */
-/* ========================= */
-
-.button {
-  position: relative;
+  border: 4px solid #fff;
+  background: #000;
+  color: #fff;
+  border-radius: 26px;
   overflow: hidden;
 
-  font-family: 'Anta', sans-serif;
-  font-size: 1.4rem;
-  padding: 2rem 2.5rem;
-  min-height: 120px;
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  align-items: stretch;
 
-  /* screen #2: ciemniejsze szkło + czytelny tekst */
-  color: white;
-  text-align: center;
   cursor: pointer;
+  padding: 0;
+  text-align: left;
 
-  /* “smoked glass” + refraction */
-  background: transparent;
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
 
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+.qButton:hover:enabled {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
+}
 
-  /* głębia jak na generatorach glass */
-  box-shadow:
-    0 18px 55px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+.qButton:active:enabled {
+  transform: translateY(0px);
+  box-shadow: none;
+}
 
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+.qButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 
+.qThumb {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  /* USUNIĘTY BORDER RIGHT - nie ma białej linii na planecie */
+  border-right: none;
+}
+
+.qThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.05);
+}
+
+.qText {
   display: flex;
   align-items: center;
   justify-content: center;
 
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
-  
+  padding: 22px 24px;
+  text-align: center;
+
+  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  /* POWIĘKSZONY TEKST */
+  font-size: 20px;
+  line-height: 1.28;
 }
 
-/* Refraction / “światło w szkle” (to robi różnicę vs screen #1) */
-.button::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.55),
-      rgba(255, 255, 255, 0.08) 35%,
-      rgba(255, 255, 255, 0.03) 55%,
-      rgba(0, 0, 0, 0) 70%
-    );
-  opacity: 0.5;
-  pointer-events: none;
-}
+/* ---------- RESPONSIVE ---------- */
 
-/* “Border glow” + delikatny gradient krawędzi */
-.button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 22px;
-  padding: 1px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.55),
-    rgba(255, 255, 255, 0.10) 35%,
-    rgba(255, 255, 255, 0.25)
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.1;
-}
-
-.button:hover:not(:disabled) {
-  transform: translateY(-4px);
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow:
-    0 24px 70px rgba(0, 0, 0, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.10);
-}
-
-.button:active:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-  .grid {
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem;
+@media (max-width: 1100px) {
+  .bannerInner {
+    grid-template-columns: 180px 1fr 220px;
   }
-
-  .title {
-    font-size: 3rem;
-  }
-
-  .button {
-    font-size: 1.2rem;
-    padding: 1.5rem 2rem;
-    min-height: 100px;
+  .qButton {
+    grid-template-columns: 150px 1fr;
   }
 }
 
-@media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+@media (max-width: 900px) {
+  .status {
+    position: static;
+    margin: 12px 0 0 auto;
+    width: fit-content;
   }
 
-  .title {
-    font-size: 2.5rem;
-  }
-
-  .button {
-    font-size: 1.1rem;
-    padding: 1.25rem 1.5rem;
-    min-height: 90px;
-  }
-
-  .content {
-    padding: 2rem 1rem;
+  .bannerInner {
+    grid-template-columns: 160px 1fr 200px;
+    min-height: 150px;
   }
 }
 
+@media (max-width: 640px) {
+  .bannerInner {
+    grid-template-columns: 120px 1fr 150px;
+    min-height: 130px;
+    border-radius: 22px;
+  }
 
-/* Hide scrollbars but keep scrolling */
-.viewer {
-  -ms-overflow-style: none;  /* IE/Edge legacy */
-  scrollbar-width: none;     /* Firefox */
-}
+  .bannerYears {
+    left: 14px;
+    bottom: 10px;
+    font-size: 14px;
+  }
 
-.viewer::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;             /* Chrome/Safari/Opera */
+  .qButton {
+    border-radius: 22px;
+    grid-template-columns: 120px 1fr;
+  }
+
+  .qText {
+    font-size: 16px;
+    padding: 16px 14px;
+  }
 }

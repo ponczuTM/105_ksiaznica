@@ -1,7 +1,10 @@
 // Viewer.jsx
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Viewer.module.css";
-import bgPhoto from "../assets/images/bg.png";
+
+import kopernikPhoto from "../assets/images/kopernik.png";
+import mapPhoto from "../assets/images/mapa.png";
+import planetsPhoto from "../assets/images/planets.png";
 
 const ITEMS = [
   { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
@@ -13,7 +16,7 @@ const ITEMS = [
   { key: "7", label: "Do you know what traditional product is Toruń famous for, with a dedicated museum in the city?" },
   { key: "8", label: "Do you know which river flows through Toruń?" },
   { key: "9", label: "Do you know the name of the famous leaning structure in Toruń's Old Town?" },
-  { key: "10", label: "Do you know the name of the Toruń Old Town complex listed as a UNESCO World Heritage Site?" }
+  { key: "10", label: "Do you know the name of the Toruń Old Town complex listed as a UNESCO World Heritage Site?" },
 ];
 
 export default function Viewer() {
@@ -58,18 +61,29 @@ export default function Viewer() {
     }
   };
 
+  const connected = status === "CONNECTED";
+
   return (
     <div className={styles.viewer}>
-      {/* PHOTO BACKGROUND */}
-      <div className={styles.bgPhoto} style={{ backgroundImage: `url(${bgPhoto})` }} />
-
-      {/* Warstwa przyciemniająca */}
-      <div className={styles.bgOverlay} />
-
       <div className={styles.content}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>Ask Nicolaus Copernicus</h1>
+        {/* TOP BANNER */}
+        <div className={styles.banner}>
+          <div className={styles.bannerInner}>
+            <div className={styles.bannerLeftImg}>
+              <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+            </div>
 
+            <div className={styles.bannerCenter}>
+              <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
+              <div className={styles.bannerYears}>1473–1543</div>
+            </div>
+
+            <div className={styles.bannerRightImg}>
+              <img src={mapPhoto} alt="Map / diagram" />
+            </div>
+          </div>
+
+          {/* STATUS pill */}
           <div className={styles.status}>
             <span
               className={[
@@ -80,20 +94,24 @@ export default function Viewer() {
             />
             <span className={styles.statusText}>{status}</span>
           </div>
-        </header>
+        </div>
 
-        <div className={styles.grid}>
+        {/* FULL-WIDTH QUESTIONS */}
+        <section className={styles.questions}>
           {ITEMS.map((it) => (
             <button
               key={it.key}
               onClick={() => sendSelection(it.key)}
-              disabled={status !== "CONNECTED"}
-              className={styles.button}
+              disabled={!connected}
+              className={styles.qButton}
             >
-              {it.label}
+              <span className={styles.qThumb} aria-hidden="true">
+                <img src={planetsPhoto} alt="" />
+              </span>
+              <span className={styles.qText}>{it.label}</span>
             </button>
           ))}
-        </div>
+        </section>
       </div>
     </div>
   );
