@@ -19,17 +19,15 @@ import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
 import SpaceBackground from "./SpaceBackground";
 
 const ITEMS = [
-  { key: "1", label: "TORUŃ - MY TOWN", thumb: torunThumb },
+  { key: "1", label: "MY ORIGIN TOWN - TORUŃ", thumb: torunThumb },
   { key: "2", label: "MY EDUCATION AND COMPETENCES", thumb: bookThumb },
   {
     key: "3",
-    // NOWA LINIA: użyj \n
-    label: 'MY HELIOCENTRIC THEORY "DE REVOLUTIONIBUS ORBIUM COELESTIUM"',
+    label: 'MY HELIOCENTRIC THEORY',
     thumb: planetsThumb,
   },
 ];
 
-// helper: renderuje label z nowymi liniami
 function LabelWithNewlines({ text }) {
   if (typeof text !== "string") return null;
   return text.split("\n").map((line, i, arr) => (
@@ -42,10 +40,8 @@ function LabelWithNewlines({ text }) {
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
-
   const [selectedKey, setSelectedKey] = useState(null);
   const [stopped, setStopped] = useState(false);
-
   const [controlsVisible, setControlsVisible] = useState(false);
 
   const backendBase = useMemo(() => {
@@ -62,7 +58,6 @@ export default function Viewer() {
         const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
         if (!res.ok) throw new Error("Bad status");
         const data = await res.json();
-
         if (cancelled) return;
 
         setStatus("CONNECTED");
@@ -153,7 +148,6 @@ export default function Viewer() {
 
   return (
     <div className={styles.viewer}>
-      {/* SVG FILTER (ukryty, ale dostępny dla CSS filter:url(#glass-distortion)) */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         role="presentation"
@@ -210,10 +204,8 @@ export default function Viewer() {
         </filter>
       </svg>
 
-      {/* TŁO (canvas three.js) */}
       <SpaceBackground className={styles.spaceBg} />
 
-      {/* UI na wierzchu */}
       <div className={styles.content}>
         <div className={styles.banner}>
           <div className={styles.bannerInner}>
@@ -256,7 +248,6 @@ export default function Viewer() {
                   <img src={it.thumb} alt="" />
                 </span>
 
-                {/* TU renderujemy z <br/> */}
                 <span className={styles.qText}>
                   <LabelWithNewlines text={it.label} />
                 </span>
@@ -278,7 +269,6 @@ export default function Viewer() {
                   <img src={selectedItem?.thumb} alt="" />
                 </span>
 
-                {/* TU też */}
                 <span className={styles.qText}>
                   <LabelWithNewlines text={selectedItem?.label ?? ""} />
                 </span>
