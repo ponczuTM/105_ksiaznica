@@ -116,7 +116,7 @@
       circle at 100% 100%,
       rgba(255, 255, 255, 0.95) 0%,
       rgba(255, 255, 255, 0.35) 28%,
-      rgba(255, 255, 255, 0.0) 62%
+      rgba(81, 0, 255, 0) 62%
     ) bottom right / var(--corner-glow-size) var(--corner-glow-size) no-repeat,
 
     /* prawa krawędź: z dołu białe, do góry znika */
@@ -193,7 +193,7 @@
       circle at 100% 100%,
       rgba(255, 255, 255, 0.95) 0%,
       rgba(255, 255, 255, 0.35) 28%,
-      rgba(255, 255, 255, 0.0) 62%
+      rgba(255, 255, 255, 0) 62%
     ) bottom right / var(--corner-glow-size) var(--corner-glow-size) no-repeat,
 
     linear-gradient(
@@ -380,6 +380,7 @@
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   margin-top: 50px;
+  background-color: #000dff1b;
 }
 
 .qButton:hover:enabled {
@@ -423,7 +424,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 
-  font-size: 40px;
+  font-size: 50px;
   line-height: 1.28;
 }
 
