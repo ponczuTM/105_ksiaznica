@@ -34,8 +34,6 @@
 
 .viewer {
   min-height: 100vh;
-  background: #000;
-  color: #fff;
   display: flex;
   justify-content: center;
   padding: 28px 20px;
@@ -44,7 +42,10 @@
 
   position: relative;
   overflow: hidden;
+
+  background: black;
 }
+
 
 /* TŁO THREE.JS */
 .spaceBg {
@@ -293,6 +294,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: white;
 }
 
 .bannerYears {
@@ -329,6 +331,7 @@
 
   position: relative;
   isolation: isolate;
+  color: white;
 }
 
 .status::after {
