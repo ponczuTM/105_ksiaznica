@@ -20,8 +20,8 @@
   --corner-glow-size: 56px;
 
   /* === BLUE TEAR (glass blob) === */
-  --tear-c1: rgba(0, 255, 245, 0.0);
-  --tear-c2: rgba(0, 255, 245, 0.0);
+  --tear-c1: rgba(0, 255, 245, 0.60);
+  --tear-c2: rgba(0, 255, 245, 0.26);
   --tear-c3: rgba(0, 255, 245, 0.00);
   --tear-size: 42%;
   --tear-blend: 1; /* zostaw 1; jak chcesz słabsze, dawaj 0.7 */
@@ -94,30 +94,30 @@
      Warstwy są od góry do dołu: highlight -> tear -> baza szkła.
   */
   background:
-    /* radial-gradient(
+    /* cienki błysk na samym rogu (podnosi efekt szkła) */
+    radial-gradient(
       140% 140% at 100% 100%,
       rgba(255, 255, 255, 0.32) 0%,
       rgba(255, 255, 255, 0.14) 18%,
       rgba(255, 255, 255, 0.0) 42%
     ) bottom right / 54% 54% no-repeat,
+
+    /* właściwa "łezka" – turkus */
     radial-gradient(
       130% 95% at 100% 100%,
       var(--tear-c1) 0%,
       var(--tear-c2) 30%,
       var(--tear-c3) 64%
-    ) bottom right / var(--tear-size) var(--tear-size) no-repeat, */
-
-    
+    ) bottom right / var(--tear-size) var(--tear-size) no-repeat,
 
     /* baza szkła */
     linear-gradient(0deg, var(--glass-bg), var(--glass-bg));
 
   color: var(--glass-text);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
-  -webkit-box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
--moz-box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
-box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
-  
+  box-shadow: var(--glass-shadow);
+
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   backdrop-filter: blur(10px) saturate(140%);
 
   border: none;
@@ -184,6 +184,11 @@ box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
   padding: var(--edge-w);
 
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.16));
+}
+
+/* hover/active */
+.liquidGlass:hover:enabled {
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.34), 0 0 26px rgba(255, 255, 255, 0.06);
 }
 
 .liquidGlass:active:enabled {
@@ -419,6 +424,11 @@ box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
   background-color: #b4b4b41b;
 }
 
+
+.qButton:hover:enabled {
+  transform: translateY(-1px);
+}
+
 .qButton:active:enabled {
   transform: translateY(0px);
 }
@@ -527,6 +537,10 @@ box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
   padding: 0;
+}
+
+.iconBtn:hover:enabled {
+  transform: translateY(-1px);
 }
 
 .iconBtn:active:enabled {
