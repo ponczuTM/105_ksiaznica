@@ -41,7 +41,7 @@
 }
 
 .viewer {
-  min-height: 100vh;
+  min-height: 150vh;
   display: flex;
   justify-content: center;
   padding: 28px 20px;
