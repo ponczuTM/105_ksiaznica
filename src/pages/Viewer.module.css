@@ -25,6 +25,14 @@
   --tear-c3: rgba(0, 255, 245, 0.00);
   --tear-size: 42%;
   --tear-blend: 1; /* zostaw 1; jak chcesz słabsze, dawaj 0.7 */
+  --neon-blue-strong: rgba(0, 195, 255, 0.95);
+  --neon-blue-mid: rgba(0, 195, 255, 0.45);
+  --neon-blue-soft: rgba(0, 195, 255, 0.25);
+  --neon-blue-off: rgba(0, 195, 255, 0);
+
+  --edge-strong: var(--neon-blue-strong);
+  --edge-mid: var(--neon-blue-mid);
+  --edge-off: var(--neon-blue-off);
 }
 
 /* ukryty svg z filtrami */
@@ -145,9 +153,9 @@
     /* corner glow – to robi robotę na łuku */
     radial-gradient(
       circle at 100% 100%,
-      rgba(255, 255, 255, 0.95) 0%,
-      rgba(255, 255, 255, 0.35) 28%,
-      rgba(81, 0, 255, 0) 62%
+      var(--neon-blue-strong) 0%,
+      var(--neon-blue-mid) 50%,
+      rgba(81, 0, 255, 0) 90%
     ) bottom right / var(--corner-glow-size) var(--corner-glow-size) no-repeat,
 
     /* prawa krawędź: z dołu białe, do góry znika */
@@ -222,8 +230,8 @@
   background:
     radial-gradient(
       circle at 100% 100%,
-      rgba(255, 255, 255, 0.95) 0%,
-      rgba(255, 255, 255, 0.35) 28%,
+      var(--neon-blue-strong) 0%,
+      var(--neon-blue-mid) 28%,
       rgba(255, 255, 255, 0) 62%
     ) bottom right / var(--corner-glow-size) var(--corner-glow-size) no-repeat,
 
@@ -346,8 +354,8 @@
   background:
     radial-gradient(
       circle at 100% 100%,
-      rgba(255, 255, 255, 0.95) 0%,
-      rgba(255, 255, 255, 0.35) 28%,
+      var(--neon-blue-strong) 0%,
+      var(--neon-blue-mid) 28%,
       rgba(255, 255, 255, 0.0) 62%
     ) bottom right / 36px 36px no-repeat,
 
@@ -413,8 +421,9 @@
   transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
   font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   margin-top: 50px;
-  background-color: #000dff1b;
+  background-color: #b4b4b41b;
 }
+
 
 .qButton:hover:enabled {
   transform: translateY(-1px);
