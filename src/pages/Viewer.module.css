@@ -56,15 +56,19 @@
 
 
 /* TŁO THREE.JS */
+/* TŁO THREE.JS – ZAWSZE CAŁY EKRAN */
 .spaceBg {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+
   z-index: 0;
   pointer-events: none;
   opacity: 0.95;
 }
 
-/* UWAGA: ::after nie zadziała jeśli .spaceBg jest <canvas>. */
+/* overlay (działa, bo .spaceBg jest div, a canvas jest w środku) */
 .spaceBg::after {
   content: "";
   position: absolute;
@@ -75,6 +79,7 @@
     rgba(0, 0, 0, 0.65)
   );
 }
+
 
 .content {
   width: 100%;
