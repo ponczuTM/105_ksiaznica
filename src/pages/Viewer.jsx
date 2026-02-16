@@ -18,10 +18,10 @@ import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
 
 import SpaceBackground from "./SpaceBackground";
 
-// NOWE: obrazki "pod playerem" dla tematów
-import photo1 from "../assets/images/video_played_1.png";
-import photo2 from "../assets/images/video_played_2.png";
-import photo3 from "../assets/images/video_played_3.png";
+// NOWE: wideo "pod playerem" dla tematów
+import video1 from "../assets/images/video_played_1_optimized.mp4";
+import video2 from "../assets/images/video_played_2_optimized.mp4";
+import video3 from "../assets/images/video_played_3_optimized.mp4";
 
 const ITEMS = [
   { key: "1", label: "MY ORIGIN TOWN - TORUŃ", thumb: torunThumb },
@@ -29,11 +29,11 @@ const ITEMS = [
   { key: "3", label: "MY HELIOCENTRIC THEORY", thumb: planetsThumb },
 ];
 
-// mapowanie key -> photo
-const PHOTO_MAP = {
-  "1": photo1,
-  "2": photo2,
-  "3": photo3,
+// mapowanie key -> video
+const VIDEO_MAP = {
+  "1": video1,
+  "2": video2,
+  "3": video3,
 };
 
 function LabelWithNewlines({ text }) {
@@ -153,7 +153,7 @@ export default function Viewer() {
   };
 
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
-  const selectedPhoto = selectedKey ? PHOTO_MAP[selectedKey] : null;
+  const selectedVideo = selectedKey ? VIDEO_MAP[selectedKey] : null;
 
   return (
     <div className={styles.viewer}>
@@ -331,14 +331,17 @@ export default function Viewer() {
                 </button>
               </div>
 
-              {/* NOWE: obraz pod "playerem" (czyli pod wyborem tematu + kontrolkami) */}
-              {selectedPhoto && (
+              {/* NOWE: wideo pod "playerem" (loop, bez dźwięku, autoplay) */}
+              {selectedVideo && (
                 <div className={[styles.playedMedia, styles.liquidGlass].join(" ")}>
-                  <img
-                    className={styles.playedImg}
-                    src={selectedPhoto}
-                    alt={`Selected topic illustration ${selectedKey}`}
-                    loading="eager"
+                  <video
+                    className={styles.playedVideo}
+                    src={selectedVideo}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
                   />
                 </div>
               )}

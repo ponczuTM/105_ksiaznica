@@ -407,7 +407,7 @@ box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
 
 .qButton {
   width: 100%;
-  border-radius: 26px;
+  border-radius: 15px;
   overflow: hidden;
 
   display: grid;
@@ -582,4 +582,11 @@ box-shadow: 2px 20px 62px -19px rgba(0, 174, 255, 1);
      ale domyślnie zostawiam auto żeby nie ucinało.
   */
   border-radius: 26px;
+}
+
+.playedVideo {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
