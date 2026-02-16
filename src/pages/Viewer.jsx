@@ -18,15 +18,23 @@ import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
 
 import SpaceBackground from "./SpaceBackground";
 
+// NOWE: obrazki "pod playerem" dla tematów
+import photo1 from "../assets/images/video_played_1.png";
+import photo2 from "../assets/images/video_played_2.png";
+import photo3 from "../assets/images/video_played_3.png";
+
 const ITEMS = [
   { key: "1", label: "MY ORIGIN TOWN - TORUŃ", thumb: torunThumb },
   { key: "2", label: "MY EDUCATION AND COMPETENCES", thumb: bookThumb },
-  {
-    key: "3",
-    label: 'MY HELIOCENTRIC THEORY',
-    thumb: planetsThumb,
-  },
+  { key: "3", label: "MY HELIOCENTRIC THEORY", thumb: planetsThumb },
 ];
+
+// mapowanie key -> photo
+const PHOTO_MAP = {
+  "1": photo1,
+  "2": photo2,
+  "3": photo3,
+};
 
 function LabelWithNewlines({ text }) {
   if (typeof text !== "string") return null;
@@ -145,6 +153,7 @@ export default function Viewer() {
   };
 
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
+  const selectedPhoto = selectedKey ? PHOTO_MAP[selectedKey] : null;
 
   return (
     <div className={styles.viewer}>
@@ -321,6 +330,18 @@ export default function Viewer() {
                   />
                 </button>
               </div>
+
+              {/* NOWE: obraz pod "playerem" (czyli pod wyborem tematu + kontrolkami) */}
+              {selectedPhoto && (
+                <div className={[styles.playedMedia, styles.liquidGlass].join(" ")}>
+                  <img
+                    className={styles.playedImg}
+                    src={selectedPhoto}
+                    alt={`Selected topic illustration ${selectedKey}`}
+                    loading="eager"
+                  />
+                </div>
+              )}
             </>
           )}
         </section>

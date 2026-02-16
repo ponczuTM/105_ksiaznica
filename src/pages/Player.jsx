@@ -6,31 +6,30 @@ import video1 from "../assets/videos/1_optimized.mp4";
 import video2 from "../assets/videos/2_optimized.mp4";
 import video3 from "../assets/videos/3_optimized.mp4";
 import video4 from "../assets/videos/4_optimized.mp4";
-import video5 from "../assets/videos/5_optimized.mp4";
-import video6 from "../assets/videos/6_optimized.mp4";
-import video7 from "../assets/videos/7_optimized.mp4";
-import video8 from "../assets/videos/8_optimized.mp4";
-import video9 from "../assets/videos/9_optimized.mp4";
-import video10 from "../assets/videos/10_optimized.mp4";
 
 const VIDEO_MAP = {
   "1": video1,
   "2": video2,
   "3": video3,
-  "4": video4,
-  "5": video5,
-  "6": video6,
-  "7": video7,
-  "8": video8,
-  "9": video9,
-  "10": video10,
+  "4": video4, // DOMYŚLNE (loop w fullscreen gdy backend = null)
 };
 
+const DEFAULT_ID = "4";
+const DEFAULT_SRC = video4;
+
 export default function Player() {
+  const backendIp = import.meta.env.VITE_BACKEND_IP;
+  const backendPort = import.meta.env.VITE_BACKEND_PORT;
+
   const backendBase = useMemo(() => {
-    const localip = import.meta.env.VITE_BACKEND_IP;
-    const port = import.meta.env.VITE_BACKEND_PORT;
-    return `http://${localip}:${port}`;
+    return `http://${backendIp}:${backendPort}`;
+  }, [backendIp, backendPort]);
+
+  // pokazuj IP tylko przez 60s od startu Playera
+  const [showIp, setShowIp] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShowIp(false), 60_000);
+    return () => clearTimeout(t);
   }, []);
 
   const [apiVideoId, setApiVideoId] = useState(null);
@@ -39,11 +38,46 @@ export default function Player() {
   const [playingId, setPlayingId] = useState(null);
 
   const [isBuffering, setIsBuffering] = useState(false);
-
   const [lastCommandId, setLastCommandId] = useState(0);
 
   const videoRef = useRef(null);
+  const stageRef = useRef(null);
   const latestApiVideoIdRef = useRef(null);
+
+  // fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onFsChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    onFsChange();
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const enterFullscreen = useCallback(async () => {
+    const el = stageRef.current || document.documentElement;
+    try {
+      if (!document.fullscreenElement) {
+        await el.requestFullscreen();
+      }
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const ensureDefaultIfNeeded = useCallback(() => {
+    // w fullscreen + backend null => ma grać domyślne w loopie
+    if (!isFullscreen) return;
+    if (latestApiVideoIdRef.current !== null) return;
+
+    if (playingId !== DEFAULT_ID) {
+      setIsBuffering(false);
+      setPlayingSrc(DEFAULT_SRC);
+      setPlayingId(DEFAULT_ID);
+    }
+  }, [isFullscreen, playingId]);
 
   const hardResetToPlaceholder = useCallback(() => {
     const v = videoRef.current;
@@ -56,7 +90,11 @@ export default function Player() {
     setIsBuffering(false);
     setPlayingSrc(null);
     setPlayingId(null);
-  }, []);
+
+    // jeśli jesteśmy w fullscreenie i backend jest null -> od razu odpal domyślne
+    // (zostaw w microtask, żeby state się ułożył)
+    queueMicrotask(() => ensureDefaultIfNeeded());
+  }, [ensureDefaultIfNeeded]);
 
   const stopVideo = useCallback(() => {
     const v = videoRef.current;
@@ -67,27 +105,37 @@ export default function Player() {
     }
   }, []);
 
-  const playVideo = useCallback((forceRestart = false) => {
-    const id = latestApiVideoIdRef.current;
-    if (!id) return;
+  const playVideo = useCallback(
+    (forceRestart = false) => {
+      const id = latestApiVideoIdRef.current;
 
-    const src = VIDEO_MAP[String(id)];
-    if (!src) return;
+      // jeśli backend null, a jesteśmy w fullscreen -> odpal domyślne
+      if (id === null) {
+        ensureDefaultIfNeeded();
+        return;
+      }
 
-    if (playingId !== String(id)) {
-      setPlayingSrc(src);
-      setPlayingId(String(id));
-      return; // onLoadedData odpali play()
-    }
+      if (!id) return;
 
-    const v = videoRef.current;
-    if (!v) return;
+      const src = VIDEO_MAP[String(id)];
+      if (!src) return;
 
-    try {
-      if (forceRestart) v.currentTime = 0;
-      v.play().catch(() => {});
-    } catch {}
-  }, [playingId]);
+      if (playingId !== String(id)) {
+        setPlayingSrc(src);
+        setPlayingId(String(id));
+        return; // onLoadedData odpali play()
+      }
+
+      const v = videoRef.current;
+      if (!v) return;
+
+      try {
+        if (forceRestart) v.currentTime = 0;
+        v.play().catch(() => {});
+      } catch {}
+    },
+    [playingId, ensureDefaultIfNeeded]
+  );
 
   // Polling backend
   useEffect(() => {
@@ -123,8 +171,7 @@ export default function Player() {
           }
 
           if (incomingCommand === "PLAY") {
-            // PLAY: jeśli nic nie gra -> odpal; jeśli gra -> wznów
-            if (incomingId === null) return;
+            // PLAY: jeśli backend null i fullscreen -> domyślne; inaczej normalnie
             const v = videoRef.current;
             const forceRestart = !!(v && v.ended);
             playVideo(forceRestart);
@@ -132,12 +179,19 @@ export default function Player() {
           }
         }
 
-        // Auto-start gdy jest ID i nic nie jest załadowane
+        // Auto-start:
+        // - jeśli jest ID 1/2/3 i nic nie jest załadowane -> ładuj to ID
         if (incomingId !== null && !playingSrc) {
           const src = VIDEO_MAP[String(incomingId)];
           if (!src) return;
           setPlayingSrc(src);
           setPlayingId(String(incomingId));
+          return;
+        }
+
+        // - jeśli backend null i fullscreen -> odpal domyślne w loopie
+        if (incomingId === null) {
+          ensureDefaultIfNeeded();
         }
       } catch {
         // silent
@@ -151,16 +205,30 @@ export default function Player() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [backendBase, lastCommandId, hardResetToPlaceholder, stopVideo, playVideo, playingSrc]);
+  }, [
+    backendBase,
+    lastCommandId,
+    hardResetToPlaceholder,
+    stopVideo,
+    playVideo,
+    playingSrc,
+    ensureDefaultIfNeeded,
+  ]);
 
   // Wideo zakończone: 1) lokalnie placeholder, 2) POST /ended -> backend ustawia null i emituje BACK
   const handleEnded = useCallback(async () => {
+    // domyślne w loopie nie powinno tu wpadać (bo ma loop), ale jakby jednak:
+    if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null) return;
+
     const endedId = playingId;
 
     // lokalnie od razu wróć do placeholdera
     setPlayingSrc(null);
     setPlayingId(null);
     setIsBuffering(false);
+
+    // jeśli jesteśmy w fullscreen + backend null -> natychmiast wróć do domyślnego
+    queueMicrotask(() => ensureDefaultIfNeeded());
 
     try {
       await fetch(`${backendBase}/ended`, {
@@ -169,9 +237,9 @@ export default function Player() {
         body: JSON.stringify({ videoid: endedId }),
       });
     } catch {
-      // nawet jak nie dojdzie, lokalnie i tak wróciło do placeholdera
+      // silent
     }
-  }, [backendBase, playingId]);
+  }, [backendBase, playingId, ensureDefaultIfNeeded]);
 
   const handleWaiting = useCallback(() => setIsBuffering(true), []);
   const handleCanPlay = useCallback(() => setIsBuffering(false), []);
@@ -183,14 +251,22 @@ export default function Player() {
     v.play().catch(() => {});
   }, []);
 
+  const isDefaultLoop = isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
+
   return (
     <div className={styles.player}>
       <div className={styles.topBar}>
         aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
         {isBuffering && <span className={styles.buffering}> (buforowanie...)</span>}
+        {showIp && (
+          <span className={styles.ipHint}>
+            {" "}
+            | backend: {backendIp}:{backendPort}
+          </span>
+        )}
       </div>
 
-      <div className={styles.stage}>
+      <div className={styles.stage} ref={stageRef}>
         {playingSrc ? (
           <video
             ref={videoRef}
@@ -200,13 +276,26 @@ export default function Player() {
             playsInline
             preload="auto"
             controls={false}
+            loop={isDefaultLoop}
             onEnded={handleEnded}
             onWaiting={handleWaiting}
             onCanPlay={handleCanPlay}
             onLoadedData={handleLoadedData}
           />
         ) : (
-          <div className={styles.placeholder}>wybierz wideo do odtworzenia</div>
+          <button
+            type="button"
+            className={styles.fullscreenBtn}
+            onClick={() => {
+              // requestFullscreen MUSI być w user-gesture
+              enterFullscreen();
+              // a potem (już po wejściu) polling/ensureDefault odpali domyślne
+              // ale dopychamy też lokalnie:
+              queueMicrotask(() => ensureDefaultIfNeeded());
+            }}
+          >
+            PEŁNY EKRAN
+          </button>
         )}
       </div>
     </div>

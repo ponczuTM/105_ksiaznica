@@ -557,3 +557,29 @@
   width: 38px;
   height: 38px;
 }
+
+
+/* ===== OBRAZ POD PLAYEREM / WYBOREM ===== */
+
+.playedMedia {
+  width: 100%;
+  margin-top: 16px;
+
+  border-radius: 26px;
+  overflow: hidden;
+
+  /* jakby ktoś kiedyś kliknął w obraz, nie psuj UX */
+  pointer-events: none;
+}
+
+.playedImg {
+  width: 100%;
+  height: auto;
+  display: block;
+
+  /* jeśli Twoje PNG mają różne proporcje i chcesz zawsze “cover”, użyj:
+     height: 360px; object-fit: cover;
+     ale domyślnie zostawiam auto żeby nie ucinało.
+  */
+  border-radius: 26px;
+}
