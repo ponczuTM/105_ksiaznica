@@ -19,9 +19,9 @@ import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
 import SpaceBackground from "./SpaceBackground";
 
 // NOWE: wideo "pod playerem" dla tematów
-import video1 from "../assets/images/video_played_1_optimized.mp4";
-import video2 from "../assets/images/video_played_2_optimized.mp4";
-import video3 from "../assets/images/video_played_3_optimized.mp4";
+import video1 from "../assets/images/video_played_1_optimized_compressed.mp4";
+import video2 from "../assets/images/video_played_2_optimized_compressed.mp4";
+import video3 from "../assets/images/video_played_3_optimized_compressed.mp4";
 
 const ITEMS = [
   { key: "1", label: "MY ORIGIN TOWN - TORUŃ", thumb: torunThumb },
