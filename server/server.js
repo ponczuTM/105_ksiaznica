@@ -3,36 +3,17 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import dgram from "dgram";
 import { fileURLToPath } from "url";
 
-function getLocalIp() {
-  return new Promise((resolve, reject) => {
-    const socket = dgram.createSocket("udp4");
-    socket.on("error", (err) => {
-      socket.close();
-      reject(err);
-    });
-
-    socket.connect(80, "8.8.8.8", () => {
-      try {
-        const addr = socket.address();
-        socket.close();
-        resolve(addr.address);
-      } catch (e) {
-        socket.close();
-        reject(e);
-      }
-    });
-  });
-}
-
-function writeEnvFile(ip, port = 3001) {
+function writeEnvFile() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
   const envPath = path.resolve(__dirname, "..", ".env");
-  const content = `VITE_BACKEND_IP=${ip}\nVITE_BACKEND_PORT=${port}\n`;
+
+  const content = `VITE_BACKEND_IP=192.168.68.11
+VITE_BACKEND_PORT=3001
+`;
 
   fs.writeFileSync(envPath, content, { encoding: "utf-8" });
   return envPath;
@@ -96,7 +77,7 @@ app.post("/control/play", (req, res) => {
   res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
-// BACK: null
+// BACK
 app.post("/control/back", (req, res) => {
   console.log("Viewer -> BACK (ustawiam videoid=null)");
   currentVideoId = null;
@@ -104,7 +85,7 @@ app.post("/control/back", (req, res) => {
   res.json({ ok: true, videoid: currentVideoId, command, commandId });
 });
 
-// Player -> wideo się skończyło: backend ma wrócić do null i wysłać BACK
+// Player -> wideo się skończyło
 app.post("/ended", (req, res) => {
   const endedId = req.body?.videoid ?? null;
 
@@ -117,26 +98,19 @@ app.post("/ended", (req, res) => {
 });
 
 // START
-(async () => {
+(() => {
   try {
-    const ip = await getLocalIp();
-    const envPath = writeEnvFile(ip, 3001);
+    const envPath = writeEnvFile();
 
     console.log(`Zapisano ${envPath}`);
-    console.log(`VITE_BACKEND_IP=${ip}`);
+    console.log(`VITE_BACKEND_IP=192.168.68.11`);
     console.log(`VITE_BACKEND_PORT=3001`);
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`API działa na porcie ${PORT}`);
-      console.log(`GET  -> http://0.0.0.0:${PORT}/get`);
-      console.log(`POST -> http://0.0.0.0:${PORT}/post/:videoId`);
-      console.log(`POST -> http://0.0.0.0:${PORT}/control/stop`);
-      console.log(`POST -> http://0.0.0.0:${PORT}/control/play`);
-      console.log(`POST -> http://0.0.0.0:${PORT}/control/back`);
-      console.log(`POST -> http://0.0.0.0:${PORT}/ended`);
     });
   } catch (err) {
-    console.error("Nie udało się wykryć IP / zapisać .env:", err);
+    console.error("Nie udało się zapisać .env:", err);
     process.exit(1);
   }
 })();
