@@ -11,7 +11,7 @@ function writeEnvFile() {
 
   const envPath = path.resolve(__dirname, "..", ".env");
 
-  const content = `VITE_BACKEND_IP=192.168.68.11
+  const content = `VITE_BACKEND_IP=192.168.177.11
 VITE_BACKEND_PORT=3001
 `;
 
