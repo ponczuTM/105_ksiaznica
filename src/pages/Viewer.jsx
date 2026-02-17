@@ -6,15 +6,15 @@ import kopernikPhoto from "../assets/images/kopernik.png";
 import mapPhoto from "../assets/images/mapa.png";
 
 // THUMBS dla przycisków:
-import torunThumb from "../assets/images/torun.png";
 import bookThumb from "../assets/images/book.png";
 import planetsThumb from "../assets/images/planets.png";
+import torunThumb from "../assets/images/torun.png";
 
-import backButton from "../assets/images/undo-stroke.svg";
-import playButton from "../assets/images/play-circle.svg";
 import stopButton from "../assets/images/pause-circle.svg";
+import playButton from "../assets/images/play-circle.svg";
+import backButton from "../assets/images/undo-stroke.svg";
 
-import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
+import { BiPauseCircle, BiPlayCircle, BiUndo } from "react-icons/bi";
 
 import SpaceBackground from "./SpaceBackground";
 
@@ -155,6 +155,9 @@ export default function Viewer() {
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
   const selectedVideo = selectedKey ? VIDEO_MAP[selectedKey] : null;
 
+  // TRUE gdy jest tryb odtwarzania (player + film)
+  const isPlayingView = Boolean(selectedVideo);
+
   return (
     <div className={styles.viewer}>
       <svg
@@ -216,33 +219,36 @@ export default function Viewer() {
       <SpaceBackground className={styles.spaceBg} />
 
       <div className={styles.content}>
-        <div className={styles.banner}>
-          <div className={styles.bannerInner}>
-            <div className={styles.bannerLeftImg}>
-              <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+        {/* Banner znika całkowicie w trybie odtwarzania (player + film) */}
+        {!isPlayingView && (
+          <div className={styles.banner}>
+            <div className={styles.bannerInner}>
+              <div className={styles.bannerLeftImg}>
+                <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+              </div>
+
+              <div className={styles.bannerCenter}>
+                <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
+                <div className={styles.bannerYears}>1473–1543</div>
+              </div>
+
+              <div className={styles.bannerRightImg}>
+                <img src={mapPhoto} alt="Map / diagram" />
+              </div>
             </div>
 
-            <div className={styles.bannerCenter}>
-              <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
-              <div className={styles.bannerYears}>1473–1543</div>
-            </div>
-
-            <div className={styles.bannerRightImg}>
-              <img src={mapPhoto} alt="Map / diagram" />
+            <div className={styles.status}>
+              <span
+                className={[
+                  styles.statusDot,
+                  status === "DISCONNECTED" ? styles.disconnected : "",
+                  status === "ERROR" ? styles.error : "",
+                ].join(" ")}
+              />
+              <span className={styles.statusText}>{status}</span>
             </div>
           </div>
-
-          <div className={styles.status}>
-            <span
-              className={[
-                styles.statusDot,
-                status === "DISCONNECTED" ? styles.disconnected : "",
-                status === "ERROR" ? styles.error : "",
-              ].join(" ")}
-            />
-            <span className={styles.statusText}>{status}</span>
-          </div>
-        </div>
+        )}
 
         <section className={styles.questions}>
           {!selectedKey ? (
