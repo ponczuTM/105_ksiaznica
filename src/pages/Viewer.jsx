@@ -24,9 +24,9 @@ import video2 from "../assets/images/video_played_2_optimized_compressed.mp4";
 import video3 from "../assets/images/video_played_3_optimized_compressed.mp4";
 
 const ITEMS = [
-  { key: "1", label: "MY ORIGIN TOWN - TORUŃ", thumb: torunThumb },
-  { key: "2", label: "MY EDUCATION AND COMPETENCES", thumb: bookThumb },
-  { key: "3", label: "MY HELIOCENTRIC THEORY", thumb: planetsThumb },
+  { key: "1", label: "ORIGIN TOWN - TORUŃ", thumb: torunThumb },
+  { key: "2", label: "EDUCATION AND COMPETENCES", thumb: bookThumb },
+  { key: "3", label: "HELIOCENTRIC THEORY", thumb: planetsThumb },
 ];
 
 // mapowanie key -> video
