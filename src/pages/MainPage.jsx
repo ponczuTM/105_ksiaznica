@@ -3,6 +3,7 @@ import { Rnd } from "react-rnd";
 import { HexColorPicker } from "react-colorful";
 import styles from "./MainPage.module.css";
 import bgImage from "../assets/images/image.jpg";
+import IPChecker from "./IPChecker";
 
 function canFullscreen() {
   const el = document.documentElement;
@@ -864,7 +865,9 @@ export default function MainPage() {
               </button>
             )}
           </div>
+          <IPChecker/>
         </header>
+        
       )}
 
       <section className={styles.workspace}>
