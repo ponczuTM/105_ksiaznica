@@ -18,22 +18,36 @@ import { BiPauseCircle, BiPlayCircle, BiUndo } from "react-icons/bi";
 
 import SpaceBackground from "./SpaceBackground";
 
-// NOWE: wideo "pod playerem" dla tematów
+// wideo "pod playerem" dla tematów
 import video1 from "../assets/images/video_played_1_optimized_compressed.mp4";
 import video2 from "../assets/images/video_played_2_optimized_compressed.mp4";
 import video3 from "../assets/images/video_played_3_optimized_compressed.mp4";
 
-const ITEMS = [
+// --- EN/PL teksty
+const ITEMS_EN = [
   { key: "1", label: "ORIGIN TOWN - TORUŃ", thumb: torunThumb },
   { key: "2", label: "EDUCATION AND COMPETENCES", thumb: bookThumb },
   { key: "3", label: "HELIOCENTRIC THEORY", thumb: planetsThumb },
 ];
 
-// mapowanie key -> video
+const ITEMS_PL = [
+  { key: "1", label: "MIASTO POCHODZENIA - TORUŃ", thumb: torunThumb },
+  { key: "2", label: "EDUKACJA I KOMPETENCJE", thumb: bookThumb },
+  { key: "3", label: "TEORIA HELIOCENTRYCZNA", thumb: planetsThumb },
+];
+
+// mapowanie key -> video (frontend)
 const VIDEO_MAP = {
   "1": video1,
   "2": video2,
   "3": video3,
+};
+
+// mapowanie key (UI) -> videoId dla backendu (PL)
+const BACKEND_ID_PL = {
+  "1": "5",
+  "2": "6",
+  "3": "7",
 };
 
 function LabelWithNewlines({ text }) {
@@ -51,6 +65,9 @@ export default function Viewer() {
   const [selectedKey, setSelectedKey] = useState(null);
   const [stopped, setStopped] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
+
+  // NOWE: język
+  const [lang, setLang] = useState("EN"); // "EN" | "PL"
 
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
@@ -100,8 +117,11 @@ export default function Viewer() {
 
   const connected = status === "CONNECTED";
 
-  const sendSelection = async (itemKey) => {
-    const url = `${backendBase}/post/${itemKey}`;
+  const sendSelection = async (uiKey) => {
+    // NOWE: zależnie od języka wysyłasz inne ID do backendu
+    const backendId = lang === "PL" ? BACKEND_ID_PL[uiKey] : uiKey;
+
+    const url = `${backendBase}/post/${backendId}`;
     const res = await fetch(url, { method: "POST" });
     if (!res.ok) throw new Error("POST failed");
   };
@@ -151,6 +171,8 @@ export default function Viewer() {
       setStatus("ERROR");
     }
   };
+
+  const ITEMS = lang === "PL" ? ITEMS_PL : ITEMS_EN;
 
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
   const selectedVideo = selectedKey ? VIDEO_MAP[selectedKey] : null;
@@ -217,6 +239,35 @@ export default function Viewer() {
       </svg>
 
       <SpaceBackground className={styles.spaceBg} />
+
+      {/* NOWE: przełącznik języka w prawym górnym rogu */}
+      <div className={styles.langSwitch}>
+        <button
+          type="button"
+          onClick={() => setLang("PL")}
+          className={[
+            styles.langBtn,
+            styles.liquidGlass,
+            lang === "PL" ? styles.langBtnActive : "",
+          ].join(" ")}
+          aria-pressed={lang === "PL"}
+        >
+          POLSKI
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLang("EN")}
+          className={[
+            styles.langBtn,
+            styles.liquidGlass,
+            lang === "EN" ? styles.langBtnActive : "",
+          ].join(" ")}
+          aria-pressed={lang === "EN"}
+        >
+          ENGLISH
+        </button>
+      </div>
 
       <div className={styles.content}>
         {/* Banner znika całkowicie w trybie odtwarzania (player + film) */}
@@ -337,7 +388,7 @@ export default function Viewer() {
                 </button>
               </div>
 
-              {/* NOWE: wideo pod "playerem" (loop, bez dźwięku, autoplay) */}
+              {/* wideo pod "playerem" (loop, bez dźwięku, autoplay) */}
               {selectedVideo && (
                 <div className={[styles.playedMedia, styles.liquidGlass].join(" ")}>
                   <video

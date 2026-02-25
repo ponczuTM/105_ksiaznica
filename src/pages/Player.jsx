@@ -5,13 +5,21 @@ import styles from "./Player.module.css";
 import kopernik_en_1 from "../assets/videos/kopernik_en_1.mp4";
 import kopernik_en_2 from "../assets/videos/kopernik_en_2.mp4";
 import kopernik_en_3 from "../assets/videos/kopernik_en_3.mp4";
+
+import kopernik_pl_1 from "../assets/videos/kopernik_pl_1.mp4";
+import kopernik_pl_2 from "../assets/videos/kopernik_pl_2.mp4";
+import kopernik_pl_3 from "../assets/videos/kopernik_pl_3.mp4";
+
 import kopernik_waiting from "../assets/videos/kopernik_waiting.mp4";
 
 const VIDEO_MAP = {
   "1": kopernik_en_1,
   "2": kopernik_en_2,
   "3": kopernik_en_3,
-  "4": kopernik_waiting, // DOMYŚLNE (loop w fullscreen gdy backend = null)
+  "5": kopernik_pl_1,
+  "6": kopernik_pl_2,
+  "7": kopernik_pl_3,
+  "4": kopernik_waiting,
 };
 
 const DEFAULT_ID = "4";
@@ -92,7 +100,6 @@ export default function Player() {
     setPlayingId(null);
 
     // jeśli jesteśmy w fullscreenie i backend jest null -> od razu odpal domyślne
-    // (zostaw w microtask, żeby state się ułożył)
     queueMicrotask(() => ensureDefaultIfNeeded());
   }, [ensureDefaultIfNeeded]);
 
@@ -180,7 +187,7 @@ export default function Player() {
         }
 
         // Auto-start:
-        // - jeśli jest ID 1/2/3 i nic nie jest załadowane -> ładuj to ID
+        // - jeśli jest ID (1/2/3 lub 5/6/7) i nic nie jest załadowane -> ładuj to ID
         if (incomingId !== null && !playingSrc) {
           const src = VIDEO_MAP[String(incomingId)];
           if (!src) return;
@@ -287,10 +294,7 @@ export default function Player() {
             type="button"
             className={styles.fullscreenBtn}
             onClick={() => {
-              // requestFullscreen MUSI być w user-gesture
               enterFullscreen();
-              // a potem (już po wejściu) polling/ensureDefault odpali domyślne
-              // ale dopychamy też lokalnie:
               queueMicrotask(() => ensureDefaultIfNeeded());
             }}
           >

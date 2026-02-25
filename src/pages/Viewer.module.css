@@ -617,3 +617,33 @@ body::-webkit-scrollbar {
 body {
   overflow-x: hidden;
 }
+
+.langSwitch {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  gap: 10px;
+}
+
+.langBtn {
+  border: 0;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.langBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.langBtnActive {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
+}
