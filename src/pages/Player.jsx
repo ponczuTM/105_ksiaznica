@@ -2,20 +2,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import styles from "./Player.module.css";
 
-import video1 from "../assets/videos/1_optimized.mp4";
-import video2 from "../assets/videos/2_optimized.mp4";
-import video3 from "../assets/videos/3_optimized.mp4";
-import video4 from "../assets/videos/4_optimized.mp4";
+import kopernik_en_1 from "../assets/videos/kopernik_en_1.mp4";
+import kopernik_en_2 from "../assets/videos/kopernik_en_2.mp4";
+import kopernik_en_3 from "../assets/videos/kopernik_en_3.mp4";
+import kopernik_waiting from "../assets/videos/kopernik_waiting.mp4";
 
 const VIDEO_MAP = {
-  "1": video1,
-  "2": video2,
-  "3": video3,
-  "4": video4, // DOMYŚLNE (loop w fullscreen gdy backend = null)
+  "1": kopernik_en_1,
+  "2": kopernik_en_2,
+  "3": kopernik_en_3,
+  "4": kopernik_waiting, // DOMYŚLNE (loop w fullscreen gdy backend = null)
 };
 
 const DEFAULT_ID = "4";
-const DEFAULT_SRC = video4;
+const DEFAULT_SRC = kopernik_waiting;
 
 export default function Player() {
   const backendIp = import.meta.env.VITE_BACKEND_IP;
