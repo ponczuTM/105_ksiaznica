@@ -46,7 +46,7 @@ def replace_audio_and_trim(video_path, audio_path, output_path):
 
 if __name__ == "__main__":
     video_file = "v3.mp4"
-    audio_file = "b3.mp3"
-    output_file = "kopernik_pl_3.mp4"
+    audio_file = "t1.mp3"
+    output_file = "test.mp4"
 
     replace_audio_and_trim(video_file, audio_file, output_file)
