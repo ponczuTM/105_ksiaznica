@@ -12,6 +12,9 @@ import kopernik_pl_3 from "../assets/videos/kopernik_pl_3.mp4";
 
 import kopernik_waiting from "../assets/videos/kopernik_waiting.mp4";
 
+import footer_page from "../assets/images/footer_page.png";
+import page_bg from "../assets/images/page_bg.png";
+
 const VIDEO_MAP = {
   "1": kopernik_en_1,
   "2": kopernik_en_2,
@@ -33,7 +36,6 @@ export default function Player() {
     return `http://${backendIp}:${backendPort}`;
   }, [backendIp, backendPort]);
 
-  // pokazuj IP tylko przez 60s od startu Playera
   const [showIp, setShowIp] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setShowIp(false), 60_000);
@@ -41,10 +43,8 @@ export default function Player() {
   }, []);
 
   const [apiVideoId, setApiVideoId] = useState(null);
-
   const [playingSrc, setPlayingSrc] = useState(null);
   const [playingId, setPlayingId] = useState(null);
-
   const [isBuffering, setIsBuffering] = useState(false);
   const [lastCommandId, setLastCommandId] = useState(0);
 
@@ -52,12 +52,10 @@ export default function Player() {
   const stageRef = useRef(null);
   const latestApiVideoIdRef = useRef(null);
 
-  // fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
     const onFsChange = () => {
-      const fs = !!document.fullscreenElement;
-      setIsFullscreen(fs);
+      setIsFullscreen(!!document.fullscreenElement);
     };
     document.addEventListener("fullscreenchange", onFsChange);
     onFsChange();
@@ -70,13 +68,10 @@ export default function Player() {
       if (!document.fullscreenElement) {
         await el.requestFullscreen();
       }
-    } catch {
-      // silent
-    }
+    } catch {}
   }, []);
 
   const ensureDefaultIfNeeded = useCallback(() => {
-    // w fullscreen + backend null => ma grać domyślne w loopie
     if (!isFullscreen) return;
     if (latestApiVideoIdRef.current !== null) return;
 
@@ -98,8 +93,6 @@ export default function Player() {
     setIsBuffering(false);
     setPlayingSrc(null);
     setPlayingId(null);
-
-    // jeśli jesteśmy w fullscreenie i backend jest null -> od razu odpal domyślne
     queueMicrotask(() => ensureDefaultIfNeeded());
   }, [ensureDefaultIfNeeded]);
 
@@ -116,7 +109,6 @@ export default function Player() {
     (forceRestart = false) => {
       const id = latestApiVideoIdRef.current;
 
-      // jeśli backend null, a jesteśmy w fullscreen -> odpal domyślne
       if (id === null) {
         ensureDefaultIfNeeded();
         return;
@@ -130,7 +122,7 @@ export default function Player() {
       if (playingId !== String(id)) {
         setPlayingSrc(src);
         setPlayingId(String(id));
-        return; // onLoadedData odpali play()
+        return;
       }
 
       const v = videoRef.current;
@@ -144,7 +136,6 @@ export default function Player() {
     [playingId, ensureDefaultIfNeeded]
   );
 
-  // Polling backend
   useEffect(() => {
     let cancelled = false;
 
@@ -163,7 +154,6 @@ export default function Player() {
         setApiVideoId(incomingId);
         latestApiVideoIdRef.current = incomingId;
 
-        // Komendy tylko gdy commandId się zmienił
         if (incomingCommandId !== lastCommandId) {
           setLastCommandId(incomingCommandId);
 
@@ -178,7 +168,6 @@ export default function Player() {
           }
 
           if (incomingCommand === "PLAY") {
-            // PLAY: jeśli backend null i fullscreen -> domyślne; inaczej normalnie
             const v = videoRef.current;
             const forceRestart = !!(v && v.ended);
             playVideo(forceRestart);
@@ -186,8 +175,6 @@ export default function Player() {
           }
         }
 
-        // Auto-start:
-        // - jeśli jest ID (1/2/3 lub 5/6/7) i nic nie jest załadowane -> ładuj to ID
         if (incomingId !== null && !playingSrc) {
           const src = VIDEO_MAP[String(incomingId)];
           if (!src) return;
@@ -196,13 +183,10 @@ export default function Player() {
           return;
         }
 
-        // - jeśli backend null i fullscreen -> odpal domyślne w loopie
         if (incomingId === null) {
           ensureDefaultIfNeeded();
         }
-      } catch {
-        // silent
-      }
+      } catch {}
     };
 
     tick();
@@ -222,19 +206,15 @@ export default function Player() {
     ensureDefaultIfNeeded,
   ]);
 
-  // Wideo zakończone: 1) lokalnie placeholder, 2) POST /ended -> backend ustawia null i emituje BACK
   const handleEnded = useCallback(async () => {
-    // domyślne w loopie nie powinno tu wpadać (bo ma loop), ale jakby jednak:
     if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null) return;
 
     const endedId = playingId;
 
-    // lokalnie od razu wróć do placeholdera
     setPlayingSrc(null);
     setPlayingId(null);
     setIsBuffering(false);
 
-    // jeśli jesteśmy w fullscreen + backend null -> natychmiast wróć do domyślnego
     queueMicrotask(() => ensureDefaultIfNeeded());
 
     try {
@@ -243,9 +223,7 @@ export default function Player() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoid: endedId }),
       });
-    } catch {
-      // silent
-    }
+    } catch {}
   }, [backendBase, playingId, ensureDefaultIfNeeded]);
 
   const handleWaiting = useCallback(() => setIsBuffering(true), []);
@@ -258,50 +236,59 @@ export default function Player() {
     v.play().catch(() => {});
   }, []);
 
-  const isDefaultLoop = isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
+  const isDefaultLoop =
+    isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
 
-  return (
-    <div className={styles.player}>
-      <div className={styles.topBar}>
-        aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
-        {isBuffering && <span className={styles.buffering}> (buforowanie...)</span>}
-        {showIp && (
-          <span className={styles.ipHint}>
-            {" "}
-            | backend: {backendIp}:{backendPort}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.stage} ref={stageRef}>
-        {playingSrc ? (
-          <video
-            ref={videoRef}
-            className={styles.video}
-            src={playingSrc}
-            autoPlay
-            playsInline
-            preload="auto"
-            controls={false}
-            loop={isDefaultLoop}
-            onEnded={handleEnded}
-            onWaiting={handleWaiting}
-            onCanPlay={handleCanPlay}
-            onLoadedData={handleLoadedData}
-          />
-        ) : (
-          <button
-            type="button"
-            className={styles.fullscreenBtn}
-            onClick={() => {
-              enterFullscreen();
-              queueMicrotask(() => ensureDefaultIfNeeded());
-            }}
-          >
-            PEŁNY EKRAN
-          </button>
-        )}
-      </div>
+return (
+  <div
+    className={styles.player}
+    style={{ backgroundImage: `url(${page_bg})` }}
+  >
+    <div className={styles.topBar}>
+      aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
+      {isBuffering && (
+        <span className={styles.buffering}> (buforowanie...)</span>
+      )}
+      {showIp && (
+        <span className={styles.ipHint}>
+          {" "}
+          | backend: {backendIp}:{backendPort}
+        </span>
+      )}
     </div>
-  );
+
+    <div className={styles.stage} ref={stageRef}>
+      {playingSrc ? (
+        <video
+          ref={videoRef}
+          className={styles.video}
+          src={playingSrc}
+          autoPlay
+          playsInline
+          preload="auto"
+          controls={false}
+          loop={isDefaultLoop}
+          onEnded={handleEnded}
+          onWaiting={handleWaiting}
+          onCanPlay={handleCanPlay}
+          onLoadedData={handleLoadedData}
+        />
+      ) : (
+        <button
+          type="button"
+          className={styles.fullscreenBtn}
+          onClick={() => {
+            enterFullscreen();
+            queueMicrotask(() => ensureDefaultIfNeeded());
+          }}
+        >
+          PEŁNY EKRAN
+        </button>
+      )}
+
+      {/* FOOTER MUSI BYĆ W STAGE */}
+      <img src={footer_page} alt="footer" className={styles.footer} />
+    </div>
+  </div>
+);
 }
