@@ -38,7 +38,7 @@ export default function Player() {
 
   const [showIp, setShowIp] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => setShowIp(false), 60_000);
+    const t = setTimeout(() => setShowIp(false), 60000);
     return () => clearTimeout(t);
   }, []);
 
@@ -144,7 +144,6 @@ export default function Player() {
         const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
-
         if (cancelled) return;
 
         const incomingId = data?.videoid ?? null;
@@ -207,7 +206,8 @@ export default function Player() {
   ]);
 
   const handleEnded = useCallback(async () => {
-    if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null) return;
+    if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null)
+      return;
 
     const endedId = playingId;
 
@@ -239,56 +239,61 @@ export default function Player() {
   const isDefaultLoop =
     isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
 
-return (
-  <div
-    className={styles.player}
-    style={{ backgroundImage: `url(${page_bg})` }}
-  >
-    <div className={styles.topBar}>
-      aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
-      {isBuffering && (
-        <span className={styles.buffering}> (buforowanie...)</span>
-      )}
-      {showIp && (
-        <span className={styles.ipHint}>
-          {" "}
-          | backend: {backendIp}:{backendPort}
-        </span>
-      )}
-    </div>
+  return (
+    <div className={styles.player}>
+      <div className={styles.topBar}>
+        aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
+        {isBuffering && (
+          <span className={styles.buffering}> (buforowanie...)</span>
+        )}
+        {showIp && (
+          <span className={styles.ipHint}>
+            {" "}
+            | backend: {backendIp}:{backendPort}
+          </span>
+        )}
+      </div>
 
-    <div className={styles.stage} ref={stageRef}>
-      {playingSrc ? (
-        <video
-          ref={videoRef}
-          className={styles.video}
-          src={playingSrc}
-          autoPlay
-          playsInline
-          preload="auto"
-          controls={false}
-          loop={isDefaultLoop}
-          onEnded={handleEnded}
-          onWaiting={handleWaiting}
-          onCanPlay={handleCanPlay}
-          onLoadedData={handleLoadedData}
-        />
-      ) : (
-        <button
-          type="button"
-          className={styles.fullscreenBtn}
-          onClick={() => {
-            enterFullscreen();
-            queueMicrotask(() => ensureDefaultIfNeeded());
-          }}
-        >
-          PEŁNY EKRAN
-        </button>
-      )}
+      <div
+        className={styles.stage}
+        ref={stageRef}
+        style={{
+          backgroundImage: `url(${page_bg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        {playingSrc ? (
+          <video
+            ref={videoRef}
+            className={styles.video}
+            src={playingSrc}
+            autoPlay
+            playsInline
+            preload="auto"
+            controls={false}
+            loop={isDefaultLoop}
+            onEnded={handleEnded}
+            onWaiting={handleWaiting}
+            onCanPlay={handleCanPlay}
+            onLoadedData={handleLoadedData}
+          />
+        ) : (
+          <button
+            type="button"
+            className={styles.fullscreenBtn}
+            onClick={() => {
+              enterFullscreen();
+              queueMicrotask(() => ensureDefaultIfNeeded());
+            }}
+          >
+            PEŁNY EKRAN
+          </button>
+        )}
 
-      {/* FOOTER MUSI BYĆ W STAGE */}
-      <img src={footer_page} alt="footer" className={styles.footer} />
+        <img src={footer_page} alt="footer" className={styles.footer} />
+      </div>
     </div>
-  </div>
-);
+  );
 }
