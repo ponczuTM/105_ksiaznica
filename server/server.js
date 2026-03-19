@@ -11,8 +11,8 @@ function writeEnvFile() {
 
   const envPath = path.resolve(__dirname, "..", ".env");
 
-  const content = `VITE_BACKEND_IP=192.168.177.11
-VITE_BACKEND_PORT=3001
+  const content = `VITE_BACKEND_IP=10.10.233.138
+VITE_BACKEND_PORT=2222
 `;
 
   fs.writeFileSync(envPath, content, { encoding: "utf-8" });
@@ -20,7 +20,7 @@ VITE_BACKEND_PORT=3001
 }
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 2222;
 
 app.use(
   cors({
@@ -40,6 +40,7 @@ app.use(express.json());
 let currentVideoId = null;
 let command = "NONE";
 let commandId = 0;
+let robotMode = false;
 
 function bumpCommand(newCommand) {
   command = newCommand;
@@ -48,7 +49,7 @@ function bumpCommand(newCommand) {
 
 // GET: stan
 app.get("/get", (req, res) => {
-  res.json({ videoid: currentVideoId, command, commandId });
+  res.json({ videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // Viewer wybiera wideo
@@ -60,21 +61,21 @@ app.post("/post/:videoId", (req, res) => {
   currentVideoId = String(videoId);
   bumpCommand("PLAY");
 
-  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // STOP
 app.post("/control/stop", (req, res) => {
   console.log("Viewer -> STOP");
   bumpCommand("STOP");
-  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // PLAY
 app.post("/control/play", (req, res) => {
   console.log("Viewer -> PLAY");
   bumpCommand("PLAY");
-  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // BACK
@@ -82,7 +83,25 @@ app.post("/control/back", (req, res) => {
   console.log("Viewer -> BACK (ustawiam videoid=null)");
   currentVideoId = null;
   bumpCommand("BACK");
-  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
+});
+
+// ROBOT ON
+app.post("/control/robot", (req, res) => {
+  console.log("Viewer -> ROBOT MODE ON");
+  robotMode = true;
+  currentVideoId = null;
+  bumpCommand("ROBOT");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
+});
+
+// ROBOT OFF
+app.post("/control/robot-off", (req, res) => {
+  console.log("Viewer -> ROBOT MODE OFF");
+  robotMode = false;
+  currentVideoId = null;
+  bumpCommand("BACK");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // Player -> wideo się skończyło
@@ -94,7 +113,7 @@ app.post("/ended", (req, res) => {
   currentVideoId = null;
   bumpCommand("BACK");
 
-  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+  res.json({ ok: true, videoid: currentVideoId, command, commandId, robotMode });
 });
 
 // START
@@ -103,8 +122,8 @@ app.post("/ended", (req, res) => {
     const envPath = writeEnvFile();
 
     console.log(`Zapisano ${envPath}`);
-    console.log(`VITE_BACKEND_IP=192.168.68.11`);
-    console.log(`VITE_BACKEND_PORT=3001`);
+    console.log(`VITE_BACKEND_IP=10.10.233.138`);
+    console.log(`VITE_BACKEND_PORT=2222`);
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`API działa na porcie ${PORT}`);

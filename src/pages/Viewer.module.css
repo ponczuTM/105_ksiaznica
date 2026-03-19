@@ -647,3 +647,23 @@ body {
   transform: translateY(-1px);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35) inset;
 }
+
+.robotBtn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  font-size: 2rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  cursor: pointer;
+  border-radius: 1rem;
+  z-index: 100;
+}
+
+.robotMode {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 2rem;
+}

@@ -1,42 +1,195 @@
-mam dla Ciebie trudne zadanie. Mam taki Viewer.jsx:
+mam taki server.js:
+// server.js
+import express from "express";
+import cors from "cors";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+function writeEnvFile() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  const envPath = path.resolve(__dirname, "..", ".env");
+
+  const content = `VITE_BACKEND_IP=192.168.177.11
+VITE_BACKEND_PORT=3001
+`;
+
+  fs.writeFileSync(envPath, content, { encoding: "utf-8" });
+  return envPath;
+}
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+app.use(express.json());
+
+let currentVideoId = null;
+let command = "NONE";
+let commandId = 0;
+
+function bumpCommand(newCommand) {
+  command = newCommand;
+  commandId += 1;
+}
+
+// GET: stan
+app.get("/get", (req, res) => {
+  res.json({ videoid: currentVideoId, command, commandId });
+});
+
+// Viewer wybiera wideo
+app.post("/post/:videoId", (req, res) => {
+  const { videoId } = req.params;
+
+  console.log(`Viewer -> wybór videoId: ${videoId}`);
+
+  currentVideoId = String(videoId);
+  bumpCommand("PLAY");
+
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// STOP
+app.post("/control/stop", (req, res) => {
+  console.log("Viewer -> STOP");
+  bumpCommand("STOP");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// PLAY
+app.post("/control/play", (req, res) => {
+  console.log("Viewer -> PLAY");
+  bumpCommand("PLAY");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// BACK
+app.post("/control/back", (req, res) => {
+  console.log("Viewer -> BACK (ustawiam videoid=null)");
+  currentVideoId = null;
+  bumpCommand("BACK");
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// Player -> wideo się skończyło
+app.post("/ended", (req, res) => {
+  const endedId = req.body?.videoid ?? null;
+
+  console.log(`Player -> ENDED (videoid=${endedId}) -> ustawiam videoid=null`);
+
+  currentVideoId = null;
+  bumpCommand("BACK");
+
+  res.json({ ok: true, videoid: currentVideoId, command, commandId });
+});
+
+// START
+(() => {
+  try {
+    const envPath = writeEnvFile();
+
+    console.log(`Zapisano ${envPath}`);
+    console.log(`VITE_BACKEND_IP=192.168.68.11`);
+    console.log(`VITE_BACKEND_PORT=3001`);
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`API działa na porcie ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Nie udało się zapisać .env:", err);
+    process.exit(1);
+  }
+})();
+
+
+
+i taki Viewer.jsx:
+
 // Viewer.jsx
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Viewer.module.css";
 
 import kopernikPhoto from "../assets/images/kopernik.png";
 import mapPhoto from "../assets/images/mapa.png";
-import planetsPhoto from "../assets/images/planets.png";
 
-// Twoje SVG (BACK/PLAY/STOP) – użyte jako fallback / opcjonalnie
-import backButton from "../assets/images/undo-stroke.svg";
-import playButton from "../assets/images/play-circle.svg";
+// THUMBS dla przycisków:
+import bookThumb from "../assets/images/book.png";
+import planetsThumb from "../assets/images/planets.png";
+import torunThumb from "../assets/images/torun.png";
+
 import stopButton from "../assets/images/pause-circle.svg";
+import playButton from "../assets/images/play-circle.svg";
+import backButton from "../assets/images/undo-stroke.svg";
 
-// Boxicons via react-icons
-import { BiUndo, BiPlayCircle, BiPauseCircle } from "react-icons/bi";
+import { BiPauseCircle, BiPlayCircle, BiUndo } from "react-icons/bi";
 
-const ITEMS = [
-  { key: "1", label: "Do you know when and where Nicolaus Copernicus was born?" },
-  {
-    key: "2",
-    label:
-      "Do you know what was the most important discovery of Copernicus concerning the structure of the Solar System?",
-  },
-  {
-    key: "3",
-    label: "Do you know what studies Copernicus completed and which fields of knowledge he explored?",
-  },
+import SpaceBackground from "./SpaceBackground";
+
+// wideo "pod playerem" dla tematów
+import video1 from "../assets/images/video_played_1_optimized_compressed.mp4";
+import video2 from "../assets/images/video_played_2_optimized_compressed.mp4";
+import video3 from "../assets/images/video_played_3_optimized_compressed.mp4";
+
+// --- EN/PL teksty
+const ITEMS_EN = [
+  { key: "1", label: "ORIGIN TOWN - TORUŃ", thumb: torunThumb },
+  { key: "2", label: "EDUCATION AND COMPETENCES", thumb: bookThumb },
+  { key: "3", label: "HELIOCENTRIC THEORY", thumb: planetsThumb },
 ];
+
+const ITEMS_PL = [
+  { key: "1", label: "MIASTO POCHODZENIA - TORUŃ", thumb: torunThumb },
+  { key: "2", label: "EDUKACJA I KOMPETENCJE", thumb: bookThumb },
+  { key: "3", label: "TEORIA HELIOCENTRYCZNA", thumb: planetsThumb },
+];
+
+// mapowanie key -> video (frontend)
+const VIDEO_MAP = {
+  "1": video1,
+  "2": video2,
+  "3": video3,
+};
+
+// mapowanie key (UI) -> videoId dla backendu (PL)
+const BACKEND_ID_PL = {
+  "1": "5",
+  "2": "6",
+  "3": "7",
+};
+
+function LabelWithNewlines({ text }) {
+  if (typeof text !== "string") return null;
+  return text.split("\n").map((line, i, arr) => (
+    <span key={i}>
+      {line}
+      {i < arr.length - 1 ? <br /> : null}
+    </span>
+  ));
+}
 
 export default function Viewer() {
   const [status, setStatus] = useState("DISCONNECTED");
-
-  // UI state
   const [selectedKey, setSelectedKey] = useState(null);
   const [stopped, setStopped] = useState(false);
-
-  // animacje: sterujemy klasą "enter"
   const [controlsVisible, setControlsVisible] = useState(false);
+
+  // NOWE: język
+  const [lang, setLang] = useState("EN"); // "EN" | "PL"
 
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
@@ -44,7 +197,6 @@ export default function Viewer() {
     return `http://${localip}:${port}`;
   }, []);
 
-  // Poll backend: status + auto-reset UI when backend says videoid=null
   useEffect(() => {
     let cancelled = false;
 
@@ -53,12 +205,10 @@ export default function Viewer() {
         const res = await fetch(`${backendBase}/get`, { cache: "no-store" });
         if (!res.ok) throw new Error("Bad status");
         const data = await res.json();
-
         if (cancelled) return;
 
         setStatus("CONNECTED");
 
-        // Jeśli wideo skończyło się i backend ma null -> Viewer wraca do domyślnego
         const backendVideoId = data?.videoid ?? null;
         if (backendVideoId === null && selectedKey !== null) {
           setSelectedKey(null);
@@ -78,21 +228,22 @@ export default function Viewer() {
     };
   }, [backendBase, selectedKey]);
 
-  // kontrolki mają się ładnie pojawić po wybraniu kafla
   useEffect(() => {
     if (!selectedKey) {
       setControlsVisible(false);
       return;
     }
-    // mikro-opóźnienie => CSS animacje startują pewniej
     const t = setTimeout(() => setControlsVisible(true), 20);
     return () => clearTimeout(t);
   }, [selectedKey]);
 
   const connected = status === "CONNECTED";
 
-  const sendSelection = async (itemKey) => {
-    const url = `${backendBase}/post/${itemKey}`;
+  const sendSelection = async (uiKey) => {
+    // NOWE: zależnie od języka wysyłasz inne ID do backendu
+    const backendId = lang === "PL" ? BACKEND_ID_PL[uiKey] : uiKey;
+
+    const url = `${backendBase}/post/${backendId}`;
     const res = await fetch(url, { method: "POST" });
     if (!res.ok) throw new Error("POST failed");
   };
@@ -133,11 +284,9 @@ export default function Viewer() {
 
   const onBack = async () => {
     try {
-      // UI lokalnie od razu w domyślny
       setSelectedKey(null);
       setStopped(false);
 
-      // Backend OBLIGATORYJNIE null
       await sendControl("back");
       setStatus("CONNECTED");
     } catch {
@@ -145,40 +294,134 @@ export default function Viewer() {
     }
   };
 
+  const ITEMS = lang === "PL" ? ITEMS_PL : ITEMS_EN;
+
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
+  const selectedVideo = selectedKey ? VIDEO_MAP[selectedKey] : null;
+
+  // TRUE gdy jest tryb odtwarzania (player + film)
+  const isPlayingView = Boolean(selectedVideo);
 
   return (
     <div className={styles.viewer}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        role="presentation"
+        aria-hidden="true"
+        className={styles.svgFilters}
+      >
+        <filter
+          id="glass-distortion"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
+          filterUnits="objectBoundingBox"
+        >
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.001 0.005"
+            numOctaves="1"
+            seed="17"
+            result="turbulence"
+          />
+          <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+          </feComponentTransfer>
+          <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+          <feSpecularLighting
+            in="softMap"
+            surfaceScale="5"
+            specularConstant="1"
+            specularExponent="100"
+            lightingColor="white"
+            result="specLight"
+          >
+            <fePointLight x="-200" y="-200" z="300" />
+          </feSpecularLighting>
+          <feComposite
+            in="specLight"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3="1"
+            k4="0"
+            result="litImage"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="softMap"
+            scale="200"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
+      <SpaceBackground className={styles.spaceBg} />
+
+      {/* NOWE: przełącznik języka w prawym górnym rogu */}
+      <div className={styles.langSwitch}>
+        <button
+          type="button"
+          onClick={() => setLang("PL")}
+          className={[
+            styles.langBtn,
+            styles.liquidGlass,
+            lang === "PL" ? styles.langBtnActive : "",
+          ].join(" ")}
+          aria-pressed={lang === "PL"}
+        >
+          POLSKI
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLang("EN")}
+          className={[
+            styles.langBtn,
+            styles.liquidGlass,
+            lang === "EN" ? styles.langBtnActive : "",
+          ].join(" ")}
+          aria-pressed={lang === "EN"}
+        >
+          ENGLISH
+        </button>
+      </div>
+
       <div className={styles.content}>
-        {/* TOP BANNER */}
-        <div className={styles.banner}>
-          <div className={styles.bannerInner}>
-            <div className={styles.bannerLeftImg}>
-              <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+        {/* Banner znika całkowicie w trybie odtwarzania (player + film) */}
+        {!isPlayingView && (
+          <div className={styles.banner}>
+            <div className={styles.bannerInner}>
+              <div className={styles.bannerLeftImg}>
+                <img src={kopernikPhoto} alt="Nicolaus Copernicus" />
+              </div>
+
+              <div className={styles.bannerCenter}>
+                <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
+                <div className={styles.bannerYears}>1473–1543</div>
+              </div>
+
+              <div className={styles.bannerRightImg}>
+                <img src={mapPhoto} alt="Map / diagram" />
+              </div>
             </div>
 
-            <div className={styles.bannerCenter}>
-              <div className={styles.bannerTitle}>NICOLAUS COPERNICUS</div>
-              <div className={styles.bannerYears}>1473–1543</div>
-            </div>
-
-            <div className={styles.bannerRightImg}>
-              <img src={mapPhoto} alt="Map / diagram" />
+            <div className={styles.status}>
+              <span
+                className={[
+                  styles.statusDot,
+                  status === "DISCONNECTED" ? styles.disconnected : "",
+                  status === "ERROR" ? styles.error : "",
+                ].join(" ")}
+              />
+              <span className={styles.statusText}>{status}</span>
             </div>
           </div>
-
-          {/* STATUS pill */}
-          <div className={styles.status}>
-            <span
-              className={[
-                styles.statusDot,
-                status === "DISCONNECTED" ? styles.disconnected : "",
-                status === "ERROR" ? styles.error : "",
-              ].join(" ")}
-            />
-            <span className={styles.statusText}>{status}</span>
-          </div>
-        </div>
+        )}
 
         <section className={styles.questions}>
           {!selectedKey ? (
@@ -187,12 +430,15 @@ export default function Viewer() {
                 key={it.key}
                 onClick={() => onPick(it.key)}
                 disabled={!connected}
-                className={styles.qButton}
+                className={[styles.qButton, styles.liquidGlass].join(" ")}
               >
                 <span className={styles.qThumb} aria-hidden="true">
-                  <img src={planetsPhoto} alt="" />
+                  <img src={it.thumb} alt="" />
                 </span>
-                <span className={styles.qText}>{it.label}</span>
+
+                <span className={styles.qText}>
+                  <LabelWithNewlines text={it.label} />
+                </span>
               </button>
             ))
           ) : (
@@ -202,14 +448,18 @@ export default function Viewer() {
                 disabled
                 className={[
                   styles.qButton,
+                  styles.liquidGlass,
                   styles.qButtonSelected,
                   styles.qButtonSelectedEnter,
                 ].join(" ")}
               >
                 <span className={styles.qThumb} aria-hidden="true">
-                  <img src={planetsPhoto} alt="" />
+                  <img src={selectedItem?.thumb} alt="" />
                 </span>
-                <span className={styles.qText}>{selectedItem?.label}</span>
+
+                <span className={styles.qText}>
+                  <LabelWithNewlines text={selectedItem?.label ?? ""} />
+                </span>
               </button>
 
               <div
@@ -221,18 +471,16 @@ export default function Viewer() {
                 <button
                   onClick={onStopPlay}
                   disabled={!connected}
-                  className={styles.iconBtn}
+                  className={[styles.iconBtn, styles.liquidGlass].join(" ")}
                   aria-label={stopped ? "Play" : "Stop"}
                   title={stopped ? "PLAY" : "STOP"}
                 >
-                  {/* Boxicons */}
                   {stopped ? (
                     <BiPlayCircle className={styles.icon} />
                   ) : (
                     <BiPauseCircle className={styles.icon} />
                   )}
 
-                  {/* Fallback Twoje SVG (możesz usunąć) */}
                   <img
                     className={styles.iconFallback}
                     src={stopped ? playButton : stopButton}
@@ -244,7 +492,11 @@ export default function Viewer() {
                 <button
                   onClick={onBack}
                   disabled={!connected}
-                  className={[styles.iconBtn, styles.iconBtnSecondary].join(" ")}
+                  className={[
+                    styles.iconBtn,
+                    styles.liquidGlass,
+                    styles.iconBtnSecondary,
+                  ].join(" ")}
                   aria-label="Back"
                   title="BACK"
                 >
@@ -257,6 +509,21 @@ export default function Viewer() {
                   />
                 </button>
               </div>
+
+              {/* wideo pod "playerem" (loop, bez dźwięku, autoplay) */}
+              {selectedVideo && (
+                <div className={[styles.playedMedia, styles.liquidGlass].join(" ")}>
+                  <video
+                    className={styles.playedVideo}
+                    src={selectedVideo}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                  />
+                </div>
+              )}
             </>
           )}
         </section>
@@ -266,415 +533,8 @@ export default function Viewer() {
 }
 
 
-I taki Viewer.module.css:
-@import url("https://fonts.googleapis.com/css2?family=Anta&display=swap");
+Chciałbym aby były zmodyfikowane 2 rzeczy:
 
-.viewer {
-  min-height: 100vh;
-  background: #000;
-  color: #fff;
-  display: flex;
-  justify-content: center;
-  padding: 28px 20px;
-  box-sizing: border-box;
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
+w Viewer.jsx aby w lewym dolnym rogu był przycisk robot. po jego kliknięciu, mają zniknąć przyciski polski, english, oraz wszystkie tematy wypowiedzi do wyboru. zamiast tego ma być tylko przycisk powrót. Gdy jesteśmy w trybie robot, backend ma o tym wiedzieć i informać pozostałe komponenty (działać jak obecnie ale z nowym typem danych o robocie) - gdy w Viewer.jsx klikniemy powrót, wszystko wraca do normy, a backend z powrotem wraca do swojej domyślnej podstawowej formy
 
-.content {
-  width: 100%;
-  max-width: 1320px;
-}
-
-/* ---------- TOP BANNER ---------- */
-
-.banner {
-  position: relative;
-  margin-bottom: 22px;
-}
-
-.bannerInner {
-  border: 4px solid #fff;
-  border-radius: 26px;
-  overflow: hidden;
-  background: #000;
-
-  display: grid;
-  grid-template-columns: 220px 1fr 260px;
-  align-items: stretch;
-  min-height: 170px;
-}
-
-.bannerLeftImg,
-.bannerRightImg {
-  height: 100%;
-  overflow: hidden;
-  background: #000;
-}
-
-.bannerLeftImg img,
-.bannerRightImg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Center: title must be centered, single line */
-.bannerCenter {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 18px 28px;
-  text-align: center;
-  background: radial-gradient(
-    closest-side,
-    rgba(255, 255, 255, 0.06),
-    rgba(0, 0, 0, 0)
-  );
-}
-
-.bannerTitle {
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-size: clamp(26px, 3vw, 52px);
-  line-height: 1;
-  padding: 10px 0;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Years */
-.bannerYears {
-  position: absolute;
-  right: 18px;
-  bottom: 14px;
-
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  font-size: 18px;
-  opacity: 0.95;
-
-  pointer-events: none;
-}
-
-/* Status pill */
-.status {
-  position: absolute;
-  right: 16px;
-  bottom: -14px;
-
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-
-  padding: 10px 14px;
-  background: #000;
-  border: 3px solid #fff;
-  border-radius: 999px;
-
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-
-.statusDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #2ecc71;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
-}
-
-.disconnected {
-  background: #ffffff;
-  opacity: 0.55;
-}
-
-.error {
-  background: #ff3b30;
-}
-
-.statusText {
-  letter-spacing: 0.12em;
-  font-weight: 400;
-  font-size: 12px;
-}
-
-/* ---------- QUESTIONS (FULL WIDTH) ---------- */
-
-.questions {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.qButton {
-  width: 100%;
-  border: 4px solid #fff;
-  background: #000;
-  color: #fff;
-  border-radius: 26px;
-  overflow: hidden;
-
-  display: grid;
-  grid-template-columns: 170px 1fr;
-  align-items: stretch;
-
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-
-.qButton:hover:enabled {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
-}
-
-.qButton:active:enabled {
-  transform: translateY(0px);
-  box-shadow: none;
-}
-
-.qButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.qThumb {
-  position: relative;
-  overflow: hidden;
-  background: #000;
-  border-right: none;
-}
-
-.qThumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  filter: contrast(1.05);
-}
-
-.qText {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  padding: 22px 24px;
-  text-align: center;
-
-  font-family: "Anta", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-
-  font-size: 20px;
-  line-height: 1.28;
-}
-
-/* ---------- SELECTED + ANIM ---------- */
-
-.qButtonSelected {
-  opacity: 1;
-}
-
-/* delikatne wejście dla wybranego kafla */
-.qButtonSelectedEnter {
-  animation: selectedCardIn 240ms ease-out both;
-}
-
-@keyframes selectedCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.995);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* ---------- CONTROLS (ICON BUTTONS) ---------- */
-
-.controls {
-  display: flex;
-  gap: 14px;
-  justify-content: flex-end;
-  align-items: center;
-
-  /* start: niewidoczne, animacja odpala po dodaniu klasy */
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
-
-.controlsEnter {
-  pointer-events: auto;
-  animation: controlsIn 260ms ease-out both;
-}
-
-@keyframes controlsIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
-/* Icon buttons */
-.iconBtn {
-  height: 64px;
-  width: 64px;
-  border-radius: 18px;
-  border: 4px solid #fff;
-  background: #000;
-  color: #fff;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
-  padding: 0;
-}
-
-.iconBtn:hover:enabled {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 40px rgba(255, 255, 255, 0.08);
-}
-
-.iconBtn:active:enabled {
-  transform: translateY(0px);
-  box-shadow: none;
-}
-
-.iconBtn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-/* wersja “secondary” – subtelnie inna */
-.iconBtnSecondary {
-  opacity: 0.92;
-}
-
-/* Ikony (react-icons) */
-.icon {
-  font-size: 40px;
-  line-height: 1;
-}
-
-/* Fallback SVG */
-.iconFallback {
-  display: none;
-  width: 38px;
-  height: 38px;
-}
-
-/*
-  Jeśli chcesz szybko przełączyć na SVG zamiast Boxicons,
-  zakomentuj .icon i odkomentuj linie poniżej:
-
-  .icon { display: none; }
-  .iconFallback { display: block; }
-*/
-
-/* ---------- RESPONSIVE ---------- */
-
-@media (max-width: 1100px) {
-  .bannerInner {
-    grid-template-columns: 180px 1fr 220px;
-  }
-  .qButton {
-    grid-template-columns: 150px 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .status {
-    position: static;
-    margin: 12px 0 0 auto;
-    width: fit-content;
-  }
-
-  .bannerInner {
-    grid-template-columns: 160px 1fr 200px;
-    min-height: 150px;
-  }
-
-  .controls {
-    justify-content: center;
-  }
-}
-
-@media (max-width: 640px) {
-  .bannerInner {
-    grid-template-columns: 120px 1fr 150px;
-    min-height: 130px;
-    border-radius: 22px;
-  }
-
-  .bannerYears {
-    left: 14px;
-    bottom: 10px;
-    font-size: 14px;
-  }
-
-  .qButton {
-    border-radius: 22px;
-    grid-template-columns: 120px 1fr;
-  }
-
-  .qText {
-    font-size: 16px;
-    padding: 16px 14px;
-  }
-
-  .iconBtn {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
-  }
-
-  .icon {
-    font-size: 36px;
-  }
-}
-
-/* Dostępność: jak ktoś ma redukcję animacji */
-@media (prefers-reduced-motion: reduce) {
-  .qButtonSelectedEnter,
-  .controlsEnter {
-    animation: none !important;
-  }
-  .controls {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-}
-
-
-Teraz chciałbym aby w tle pojawiały się latające planety - co jakiś PiAlignCenterHorizontalSimple, powoli, od lewego górnego rogu w kierunku prawego górnego, powoli, +-30 stopni. Mam takie obrazy:
-
-import sunFlat from "../assets/images/sun.jpg";
-import earthFlat from "../assets/images/earth.jpg";
-import marsFlat from "../assets/images/mars.jpg";
-
-program ma: Zmapować je na kule, zanimować je tak aby leciały i kręciły się wokół własnej osi delikatnie - chyba wiesz o co mi chodzi. JEDNA PO DRUGIEJ LOSOWO - NIGDY WIĘCEJ NIŻ JEDNA JEDNOCZEŚNIE. MA TO WYGLąDAĆ TAK JAK BYŚMY Z KAMERą LECIELI PRZEZ KOSMOS.
-
-POKAŻ CAŁE KODY
+Pokaż cały kompletny Viewer.jsx oraz server.js

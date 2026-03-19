@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import styles from "./Player.module.css";
 
+import Robot from "./Robot";
+
 import kopernik_en_1 from "../assets/videos/kopernik_en_1.mp4";
 import kopernik_en_2 from "../assets/videos/kopernik_en_2.mp4";
 import kopernik_en_3 from "../assets/videos/kopernik_en_3.mp4";
@@ -47,6 +49,7 @@ export default function Player() {
   const [playingId, setPlayingId] = useState(null);
   const [isBuffering, setIsBuffering] = useState(false);
   const [lastCommandId, setLastCommandId] = useState(0);
+  const [robotMode, setRobotMode] = useState(false);
 
   const videoRef = useRef(null);
   const stageRef = useRef(null);
@@ -149,14 +152,19 @@ export default function Player() {
         const incomingId = data?.videoid ?? null;
         const incomingCommand = data?.command ?? "NONE";
         const incomingCommandId = Number(data?.commandId ?? 0);
+        const incomingRobotMode = data?.robotMode ?? false;
 
+        setRobotMode(incomingRobotMode);
         setApiVideoId(incomingId);
         latestApiVideoIdRef.current = incomingId;
+
+        // gdy jesteśmy w trybie robota, nie ruszamy normalnego odtwarzacza
+        if (incomingRobotMode) return;
 
         if (incomingCommandId !== lastCommandId) {
           setLastCommandId(incomingCommandId);
 
-          if (incomingCommand === "BACK") {
+          if (incomingCommand === "BACK" || incomingCommand === "ROBOT") {
             hardResetToPlaceholder();
             return;
           }
@@ -239,21 +247,30 @@ export default function Player() {
   const isDefaultLoop =
     isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
 
+  // Oba widoki żyją w tym samym drzewie DOM — nigdy nie ma unmount/remount.
+  // CSS visibility decyduje co jest widoczne.
   return (
     <div className={styles.player}>
-      <div className={styles.topBar}>
-        aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
-        {isBuffering && (
-          <span className={styles.buffering}> (buforowanie...)</span>
-        )}
-        {showIp && (
-          <span className={styles.ipHint}>
-            {" "}
-            | backend: {backendIp}:{backendPort}
-          </span>
-        )}
-      </div>
+      {/* topBar — ukryty w trybie robota */}
+      {!robotMode && (
+        <div className={styles.topBar}>
+          aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
+          {isBuffering && (
+            <span className={styles.buffering}> (buforowanie...)</span>
+          )}
+          {showIp && (
+            <span className={styles.ipHint}>
+              {" "}
+              | backend: {backendIp}:{backendPort}
+            </span>
+          )}
+        </div>
+      )}
 
+      {/*
+        Jeden stały kontener — stageRef nigdy nie jest odmontowany.
+        Dzięki temu fullscreen przeżywa przełączenie robotMode.
+      */}
       <div
         className={styles.stage}
         ref={stageRef}
@@ -264,33 +281,52 @@ export default function Player() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        {playingSrc ? (
-          <video
-            ref={videoRef}
-            className={styles.video}
-            src={playingSrc}
-            autoPlay
-            playsInline
-            preload="auto"
-            controls={false}
-            loop={isDefaultLoop}
-            onEnded={handleEnded}
-            onWaiting={handleWaiting}
-            onCanPlay={handleCanPlay}
-            onLoadedData={handleLoadedData}
-          />
-        ) : (
-          <button
-            type="button"
-            className={styles.fullscreenBtn}
-            onClick={() => {
-              enterFullscreen();
-              queueMicrotask(() => ensureDefaultIfNeeded());
-            }}
-          >
-            PEŁNY EKRAN
-          </button>
-        )}
+        {/* === WIDOK ROBOTA — widoczny/ukryty przez display === */}
+        <div
+          style={{
+            display: robotMode ? "flex" : "none",
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+          }}
+        >
+          <Robot backendBase={backendBase} />
+        </div>
+
+        {/* === NORMALNY PLAYER — widoczny gdy nie ma robota === */}
+        <div
+          style={{
+            display: robotMode ? "none" : "contents",
+          }}
+        >
+          {playingSrc ? (
+            <video
+              ref={videoRef}
+              className={styles.video}
+              src={playingSrc}
+              autoPlay
+              playsInline
+              preload="auto"
+              controls={false}
+              loop={isDefaultLoop}
+              onEnded={handleEnded}
+              onWaiting={handleWaiting}
+              onCanPlay={handleCanPlay}
+              onLoadedData={handleLoadedData}
+            />
+          ) : (
+            <button
+              type="button"
+              className={styles.fullscreenBtn}
+              onClick={() => {
+                enterFullscreen();
+                queueMicrotask(() => ensureDefaultIfNeeded());
+              }}
+            >
+              PEŁNY EKRAN
+            </button>
+          )}
+        </div>
 
         <img src={footer_page} alt="footer" className={styles.footer} />
       </div>

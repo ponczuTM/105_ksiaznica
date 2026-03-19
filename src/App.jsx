@@ -4,6 +4,7 @@ import Player from "./pages/Player.jsx";
 import MainPage from "./pages/MainPage.jsx"
 import Map from "./pages/Map.jsx";
 import SendImage from "./pages/SendImage.jsx";
+import Robot from "./pages/Robot.jsx";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/player" element={<Player />} />
         <Route path="/map" element={<Map />} />
         <Route path="/sendimage" element={<SendImage />} />
+        <Route path="/robot" element={<Robot />} />
       </Routes>
     </BrowserRouter>
   );

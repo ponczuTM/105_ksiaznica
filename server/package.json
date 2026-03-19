@@ -1,5 +1,6 @@
 {
   "name": "105_be",
+  "type": "module",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -14,6 +15,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "multer": "^2.0.2",
+    "serialport": "^13.0.0",
     "ws": "^8.19.0"
   }
 }

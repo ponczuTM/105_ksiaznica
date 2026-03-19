@@ -5,7 +5,6 @@ import styles from "./Viewer.module.css";
 import kopernikPhoto from "../assets/images/kopernik.png";
 import mapPhoto from "../assets/images/mapa.png";
 
-// THUMBS dla przycisków:
 import bookThumb from "../assets/images/book.png";
 import planetsThumb from "../assets/images/planets.png";
 import torunThumb from "../assets/images/torun.png";
@@ -18,12 +17,10 @@ import { BiPauseCircle, BiPlayCircle, BiUndo } from "react-icons/bi";
 
 import SpaceBackground from "./SpaceBackground";
 
-// wideo "pod playerem" dla tematów
 import video1 from "../assets/images/video_played_1_optimized_compressed.mp4";
 import video2 from "../assets/images/video_played_2_optimized_compressed.mp4";
 import video3 from "../assets/images/video_played_3_optimized_compressed.mp4";
 
-// --- EN/PL teksty
 const ITEMS_EN = [
   { key: "1", label: "ORIGIN TOWN - TORUŃ", thumb: torunThumb },
   { key: "2", label: "EDUCATION AND COMPETENCES", thumb: bookThumb },
@@ -36,14 +33,12 @@ const ITEMS_PL = [
   { key: "3", label: "TEORIA HELIOCENTRYCZNA", thumb: planetsThumb },
 ];
 
-// mapowanie key -> video (frontend)
 const VIDEO_MAP = {
   "1": video1,
   "2": video2,
   "3": video3,
 };
 
-// mapowanie key (UI) -> videoId dla backendu (PL)
 const BACKEND_ID_PL = {
   "1": "5",
   "2": "6",
@@ -52,7 +47,7 @@ const BACKEND_ID_PL = {
 
 function LabelWithNewlines({ text }) {
   if (typeof text !== "string") return null;
-  return text.split("\n").map((line, i, arr) => (
+  return text.split("\\n").map((line, i, arr) => (
     <span key={i}>
       {line}
       {i < arr.length - 1 ? <br /> : null}
@@ -65,9 +60,8 @@ export default function Viewer() {
   const [selectedKey, setSelectedKey] = useState(null);
   const [stopped, setStopped] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(false);
-
-  // NOWE: język
-  const [lang, setLang] = useState("EN"); // "EN" | "PL"
+  const [lang, setLang] = useState("EN");
+  const [robotMode, setRobotMode] = useState(false);
 
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
@@ -118,9 +112,7 @@ export default function Viewer() {
   const connected = status === "CONNECTED";
 
   const sendSelection = async (uiKey) => {
-    // NOWE: zależnie od języka wysyłasz inne ID do backendu
     const backendId = lang === "PL" ? BACKEND_ID_PL[uiKey] : uiKey;
-
     const url = `${backendBase}/post/${backendId}`;
     const res = await fetch(url, { method: "POST" });
     if (!res.ok) throw new Error("POST failed");
@@ -145,7 +137,6 @@ export default function Viewer() {
 
   const onStopPlay = async () => {
     if (!selectedKey) return;
-
     try {
       if (!stopped) {
         setStopped(true);
@@ -164,7 +155,6 @@ export default function Viewer() {
     try {
       setSelectedKey(null);
       setStopped(false);
-
       await sendControl("back");
       setStatus("CONNECTED");
     } catch {
@@ -172,12 +162,32 @@ export default function Viewer() {
     }
   };
 
-  const ITEMS = lang === "PL" ? ITEMS_PL : ITEMS_EN;
+  // --- ROBOT ---
+  const onRobotEnter = async () => {
+    try {
+      setRobotMode(true);
+      setSelectedKey(null);
+      setStopped(false);
+      await sendControl("robot");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
 
+  const onRobotBack = async () => {
+    try {
+      setRobotMode(false);
+      await sendControl("robot-off");
+      setStatus("CONNECTED");
+    } catch {
+      setStatus("ERROR");
+    }
+  };
+
+  const ITEMS = lang === "PL" ? ITEMS_PL : ITEMS_EN;
   const selectedItem = selectedKey ? ITEMS.find((x) => x.key === selectedKey) : null;
   const selectedVideo = selectedKey ? VIDEO_MAP[selectedKey] : null;
-
-  // TRUE gdy jest tryb odtwarzania (player + film)
   const isPlayingView = Boolean(selectedVideo);
 
   return (
@@ -240,38 +250,54 @@ export default function Viewer() {
 
       <SpaceBackground className={styles.spaceBg} />
 
-      {/* NOWE: przełącznik języka w prawym górnym rogu */}
-      <div className={styles.langSwitch}>
-        <button
-          type="button"
-          onClick={() => setLang("PL")}
-          className={[
-            styles.langBtn,
-            styles.liquidGlass,
-            lang === "PL" ? styles.langBtnActive : "",
-          ].join(" ")}
-          aria-pressed={lang === "PL"}
-        >
-          POLSKI
-        </button>
+      {/* Przełącznik języka — ukryty w trybie robota */}
+      {!robotMode && (
+        <div className={styles.langSwitch}>
+          <button
+            type="button"
+            onClick={() => setLang("PL")}
+            className={[
+              styles.langBtn,
+              styles.liquidGlass,
+              lang === "PL" ? styles.langBtnActive : "",
+            ].join(" ")}
+            aria-pressed={lang === "PL"}
+          >
+            POLSKI
+          </button>
 
+          <button
+            type="button"
+            onClick={() => setLang("EN")}
+            className={[
+              styles.langBtn,
+              styles.liquidGlass,
+              lang === "EN" ? styles.langBtnActive : "",
+            ].join(" ")}
+            aria-pressed={lang === "EN"}
+          >
+            ENGLISH
+          </button>
+        </div>
+      )}
+
+      {/* Przycisk ROBOT — lewy dolny róg, ukryty gdy już w trybie robota */}
+      {!robotMode && (
         <button
           type="button"
-          onClick={() => setLang("EN")}
-          className={[
-            styles.langBtn,
-            styles.liquidGlass,
-            lang === "EN" ? styles.langBtnActive : "",
-          ].join(" ")}
-          aria-pressed={lang === "EN"}
+          onClick={onRobotEnter}
+          disabled={!connected}
+          className={[styles.robotBtn, styles.liquidGlass].join(" ")}
+          aria-label="Tryb robota"
+          title="ROBOT"
         >
-          ENGLISH
+          🤖
         </button>
-      </div>
+      )}
 
       <div className={styles.content}>
-        {/* Banner znika całkowicie w trybie odtwarzania (player + film) */}
-        {!isPlayingView && (
+        {/* Banner — ukryty w trybie robota i podczas odtwarzania */}
+        {!isPlayingView && !robotMode && (
           <div className={styles.banner}>
             <div className={styles.bannerInner}>
               <div className={styles.bannerLeftImg}>
@@ -302,7 +328,30 @@ export default function Viewer() {
         )}
 
         <section className={styles.questions}>
-          {!selectedKey ? (
+          {/* TRYB ROBOTA */}
+          {robotMode ? (
+            <div className={styles.robotMode}>
+              <button
+                onClick={onRobotBack}
+                disabled={!connected}
+                className={[
+                  styles.iconBtn,
+                  styles.liquidGlass,
+                  styles.iconBtnSecondary,
+                ].join(" ")}
+                aria-label="Powrót"
+                title="POWRÓT"
+              >
+                <BiUndo className={styles.icon} />
+                <img
+                  className={styles.iconFallback}
+                  src={backButton}
+                  alt=""
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+          ) : !selectedKey ? (
             ITEMS.map((it) => (
               <button
                 key={it.key}
@@ -358,7 +407,6 @@ export default function Viewer() {
                   ) : (
                     <BiPauseCircle className={styles.icon} />
                   )}
-
                   <img
                     className={styles.iconFallback}
                     src={stopped ? playButton : stopButton}
@@ -388,7 +436,6 @@ export default function Viewer() {
                 </button>
               </div>
 
-              {/* wideo pod "playerem" (loop, bez dźwięku, autoplay) */}
               {selectedVideo && (
                 <div className={[styles.playedMedia, styles.liquidGlass].join(" ")}>
                   <video
