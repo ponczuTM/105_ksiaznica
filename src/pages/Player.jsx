@@ -1,8 +1,7 @@
 // Player.jsx
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import styles from "./Player.module.css";
-
-import Robot from "./Robot";
+import robotStyles from "./Robot.module.css";
 
 import kopernik_en_1 from "../assets/videos/kopernik_en_1.mp4";
 import kopernik_en_2 from "../assets/videos/kopernik_en_2.mp4";
@@ -13,6 +12,10 @@ import kopernik_pl_2 from "../assets/videos/kopernik_pl_2.mp4";
 import kopernik_pl_3 from "../assets/videos/kopernik_pl_3.mp4";
 
 import kopernik_waiting from "../assets/videos/kopernik_waiting.mp4";
+
+import videoXX from "../assets/videos/1_cz_logo.mp4";
+import video05 from "../assets/videos/2_cz_podejdz.mp4";
+import videoAB from "../assets/videos/3_cz_robot.mp4";
 
 import footer_page from "../assets/images/footer_page.png";
 import page_bg from "../assets/images/page_bg.png";
@@ -29,6 +32,21 @@ const VIDEO_MAP = {
 
 const DEFAULT_ID = "4";
 const DEFAULT_SRC = kopernik_waiting;
+
+const ROBOT_VIDEO_MAP = {
+  "XX": videoXX,
+  "05": video05,
+  "06": video05,
+  "07": video05,
+  "01": videoAB,
+  "02": videoAB,
+  "03": videoAB,
+  "04": videoAB,
+  "AB": videoAB,
+};
+
+const ROBOT_LOOP_DISTANCES = ["XX", "05", "06", "07"];
+const ROBOT_CLOSE_DISTANCES = ["AB", "01", "02", "03", "04"];
 
 export default function Player() {
   const backendIp = import.meta.env.VITE_BACKEND_IP;
@@ -55,11 +73,16 @@ export default function Player() {
   const stageRef = useRef(null);
   const latestApiVideoIdRef = useRef(null);
 
+  const [robotDistance, setRobotDistance] = useState("XX");
+  const [robotVideoSource, setRobotVideoSource] = useState(videoXX);
+  const [isRobotBlocked, setIsRobotBlocked] = useState(false);
+  const [canReactToChange, setCanReactToChange] = useState(true);
+  const [ignoreChanges, setIgnoreChanges] = useState(false);
+  const robotVideoRef = useRef(null);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFsChange);
     onFsChange();
     return () => document.removeEventListener("fullscreenchange", onFsChange);
@@ -68,16 +91,13 @@ export default function Player() {
   const enterFullscreen = useCallback(async () => {
     const el = stageRef.current || document.documentElement;
     try {
-      if (!document.fullscreenElement) {
-        await el.requestFullscreen();
-      }
+      if (!document.fullscreenElement) await el.requestFullscreen();
     } catch {}
   }, []);
 
   const ensureDefaultIfNeeded = useCallback(() => {
     if (!isFullscreen) return;
     if (latestApiVideoIdRef.current !== null) return;
-
     if (playingId !== DEFAULT_ID) {
       setIsBuffering(false);
       setPlayingSrc(DEFAULT_SRC);
@@ -111,26 +131,17 @@ export default function Player() {
   const playVideo = useCallback(
     (forceRestart = false) => {
       const id = latestApiVideoIdRef.current;
-
-      if (id === null) {
-        ensureDefaultIfNeeded();
-        return;
-      }
-
+      if (id === null) { ensureDefaultIfNeeded(); return; }
       if (!id) return;
-
       const src = VIDEO_MAP[String(id)];
       if (!src) return;
-
       if (playingId !== String(id)) {
         setPlayingSrc(src);
         setPlayingId(String(id));
         return;
       }
-
       const v = videoRef.current;
       if (!v) return;
-
       try {
         if (forceRestart) v.currentTime = 0;
         v.play().catch(() => {});
@@ -138,6 +149,38 @@ export default function Player() {
     },
     [playingId, ensureDefaultIfNeeded]
   );
+
+useEffect(() => {
+  if (!robotMode) {
+    const v = robotVideoRef.current;
+    if (v) {
+      try {
+        v.pause();
+        v.currentTime = 0;
+      } catch {}
+    }
+  }
+}, [robotMode]);
+
+useEffect(() => {
+  if (robotMode) {
+    setRobotDistance("XX");
+    setRobotVideoSource(videoXX);
+    setIsRobotBlocked(false);
+    setCanReactToChange(true);
+    setIgnoreChanges(false);
+
+    const t = setTimeout(() => {
+      const v = robotVideoRef.current;
+      if (v) {
+        v.currentTime = 0;
+        v.play().catch(() => {});
+      }
+    }, 50);
+    return () => clearTimeout(t);
+  }
+}, [robotMode]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -158,7 +201,6 @@ export default function Player() {
         setApiVideoId(incomingId);
         latestApiVideoIdRef.current = incomingId;
 
-        // gdy jesteśmy w trybie robota, nie ruszamy normalnego odtwarzacza
         if (incomingRobotMode) return;
 
         if (incomingCommandId !== lastCommandId) {
@@ -168,16 +210,10 @@ export default function Player() {
             hardResetToPlaceholder();
             return;
           }
-
-          if (incomingCommand === "STOP") {
-            stopVideo();
-            return;
-          }
-
+          if (incomingCommand === "STOP") { stopVideo(); return; }
           if (incomingCommand === "PLAY") {
             const v = videoRef.current;
-            const forceRestart = !!(v && v.ended);
-            playVideo(forceRestart);
+            playVideo(!!(v && v.ended));
             return;
           }
         }
@@ -190,41 +226,25 @@ export default function Player() {
           return;
         }
 
-        if (incomingId === null) {
-          ensureDefaultIfNeeded();
-        }
+        if (incomingId === null) ensureDefaultIfNeeded();
       } catch {}
     };
 
     tick();
     const t = setInterval(tick, 500);
-
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
+    return () => { cancelled = true; clearInterval(t); };
   }, [
-    backendBase,
-    lastCommandId,
-    hardResetToPlaceholder,
-    stopVideo,
-    playVideo,
-    playingSrc,
-    ensureDefaultIfNeeded,
+    backendBase, lastCommandId, hardResetToPlaceholder,
+    stopVideo, playVideo, playingSrc, ensureDefaultIfNeeded,
   ]);
 
   const handleEnded = useCallback(async () => {
-    if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null)
-      return;
-
+    if (playingId === DEFAULT_ID && latestApiVideoIdRef.current === null) return;
     const endedId = playingId;
-
     setPlayingSrc(null);
     setPlayingId(null);
     setIsBuffering(false);
-
     queueMicrotask(() => ensureDefaultIfNeeded());
-
     try {
       await fetch(`${backendBase}/ended`, {
         method: "POST",
@@ -236,22 +256,58 @@ export default function Player() {
 
   const handleWaiting = useCallback(() => setIsBuffering(true), []);
   const handleCanPlay = useCallback(() => setIsBuffering(false), []);
-
   const handleLoadedData = useCallback(() => {
     setIsBuffering(false);
-    const v = videoRef.current;
-    if (!v) return;
-    v.play().catch(() => {});
+    videoRef.current?.play().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!robotMode) return;
+
+    const ws = new WebSocket("ws://localhost:3001");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (!isRobotBlocked && canReactToChange && !ignoreChanges) {
+        if (ROBOT_CLOSE_DISTANCES.includes(data.distance)) {
+          setRobotDistance("AB");
+          setIsRobotBlocked(true);
+        } else {
+          setRobotDistance(data.distance);
+        }
+      }
+    };
+
+    ws.onclose = () => {};
+    return () => ws.close();
+  }, [robotMode, isRobotBlocked, canReactToChange, ignoreChanges]);
+
+  useEffect(() => {
+    const src = ROBOT_VIDEO_MAP[robotDistance] ?? videoXX;
+    setRobotVideoSource(src);
+  }, [robotDistance]);
+
+  const handleRobotVideoEnd = useCallback(() => {
+    setIsRobotBlocked(false);
+    setIgnoreChanges(true);
+    setRobotDistance("XX");
+    setTimeout(() => setIgnoreChanges(false), 5000);
+  }, []);
+
+  const handleRobotVideoStart = useCallback(() => {
+    setCanReactToChange(false);
+    setTimeout(() => setCanReactToChange(true), 5000);
   }, []);
 
   const isDefaultLoop =
     isFullscreen && apiVideoId === null && playingId === DEFAULT_ID;
+  const robotLoop = ROBOT_LOOP_DISTANCES.includes(robotDistance);
+  const robotMuted = robotDistance === "XX";
+  const showRobotMessage = ROBOT_LOOP_DISTANCES.includes(robotDistance);
 
-  // Oba widoki żyją w tym samym drzewie DOM — nigdy nie ma unmount/remount.
-  // CSS visibility decyduje co jest widoczne.
   return (
     <div className={styles.player}>
-      {/* topBar — ukryty w trybie robota */}
       {!robotMode && (
         <div className={styles.topBar}>
           aktualny videoID: {apiVideoId === null ? "null" : String(apiVideoId)}
@@ -260,17 +316,12 @@ export default function Player() {
           )}
           {showIp && (
             <span className={styles.ipHint}>
-              {" "}
-              | backend: {backendIp}:{backendPort}
+              {" "}| backend: {backendIp}:{backendPort}
             </span>
           )}
         </div>
       )}
 
-      {/*
-        Jeden stały kontener — stageRef nigdy nie jest odmontowany.
-        Dzięki temu fullscreen przeżywa przełączenie robotMode.
-      */}
       <div
         className={styles.stage}
         ref={stageRef}
@@ -281,7 +332,7 @@ export default function Player() {
           backgroundRepeat: "no-repeat",
         }}
       >
-        {/* === WIDOK ROBOTA — widoczny/ukryty przez display === */}
+        {/* === WIDOK ROBOTA === */}
         <div
           style={{
             display: robotMode ? "flex" : "none",
@@ -290,15 +341,26 @@ export default function Player() {
             zIndex: 10,
           }}
         >
-          <Robot backendBase={backendBase} />
+          <div className={robotStyles.videoContainer}>
+            <video
+              ref={robotVideoRef}
+              src={robotVideoSource}
+              preload="auto"
+              autoPlay
+              loop={robotLoop}
+              muted={robotMuted}
+              onPlay={handleRobotVideoStart}
+              onEnded={handleRobotVideoEnd}
+              className={robotStyles.video}
+            />
+            {showRobotMessage && (
+              <div className={robotStyles.message}>PODEJDŹ BLIŻEJ</div>
+            )}
+          </div>
         </div>
 
-        {/* === NORMALNY PLAYER — widoczny gdy nie ma robota === */}
-        <div
-          style={{
-            display: robotMode ? "none" : "contents",
-          }}
-        >
+        {/* === NORMALNY PLAYER === */}
+        <div style={{ display: robotMode ? "none" : "contents" }}>
           {playingSrc ? (
             <video
               ref={videoRef}
@@ -328,7 +390,13 @@ export default function Player() {
           )}
         </div>
 
-        <img src={footer_page} alt="footer" className={styles.footer} />
+        <img
+  src={footer_page}
+  alt="footer"
+  className={styles.footer}
+  style={{ display: robotMode ? "none" : undefined }}
+/>
+
       </div>
     </div>
   );
