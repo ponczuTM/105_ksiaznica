@@ -672,3 +672,12 @@ body {
   max-width: 30vw;
   height: auto;
 }
+
+
+.companyLogo {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  max-width: 220px;
+  height: auto;
+}

@@ -4,6 +4,7 @@ import styles from "./Viewer.module.css";
 
 import kopernikPhoto from "../assets/images/kopernik.png";
 import robotAvatar from "../assets/images/robot_avatar.png"
+import companyLogo from "../assets/images/company_logo.png"
 import mapPhoto from "../assets/images/mapa.png";
 
 import bookThumb from "../assets/images/book.png";
@@ -334,33 +335,39 @@ export default function Viewer() {
         <section className={styles.questions}>
           {/* TRYB ROBOTA */}
           {robotMode ? (
-            <div className={styles.robotMode}>
-              <img
-                src={robotAvatar}
-                alt="Robot avatar"
-                className={styles.robotAvatar}
-              />
+  <div className={styles.robotMode}>
+    <img
+      src={companyLogo}
+      alt="Company logo"
+      className={styles.companyLogo}
+    />
 
-              <button
-                onClick={onRobotBack}
-                disabled={!connected}
-                className={[
-                  styles.iconBtn,
-                  styles.liquidGlass,
-                  styles.iconBtnSecondary,
-                ].join(" ")}
-                aria-label="Powrót"
-                title="POWRÓT"
-              >
-                <BiUndo className={styles.icon} />
-                <img
-                  className={styles.iconFallback}
-                  src={backButton}
-                  alt=""
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
+    <img
+      src={robotAvatar}
+      alt="Robot avatar"
+      className={styles.robotAvatar}
+    />
+
+    <button
+      onClick={onRobotBack}
+      disabled={!connected}
+      className={[
+        styles.iconBtn,
+        styles.liquidGlass,
+        styles.iconBtnSecondary,
+      ].join(" ")}
+      aria-label="Powrót"
+      title="POWRÓT"
+    >
+      <BiUndo className={styles.icon} />
+      <img
+        className={styles.iconFallback}
+        src={backButton}
+        alt=""
+        aria-hidden="true"
+      />
+    </button>
+  </div>
           ) : !selectedKey ? (
             ITEMS.map((it) => (
               <button
