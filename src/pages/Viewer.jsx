@@ -294,7 +294,7 @@ export default function Viewer() {
           aria-label="Tryb robota"
           title="ROBOT"
         >
-          🤖
+          Robot
         </button>
       )}
 
