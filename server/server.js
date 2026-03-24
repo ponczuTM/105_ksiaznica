@@ -11,7 +11,7 @@ function writeEnvFile() {
 
   const envPath = path.resolve(__dirname, "..", ".env");
 
-  const content = `VITE_BACKEND_IP=10.10.233.138
+  const content = `VITE_BACKEND_IP=192.168.68.168
 VITE_BACKEND_PORT=2222
 `;
 
@@ -122,7 +122,7 @@ app.post("/ended", (req, res) => {
     const envPath = writeEnvFile();
 
     console.log(`Zapisano ${envPath}`);
-    console.log(`VITE_BACKEND_IP=10.10.233.138`);
+    console.log(`VITE_BACKEND_IP=192.168.68.168`);
     console.log(`VITE_BACKEND_PORT=2222`);
 
     app.listen(PORT, "0.0.0.0", () => {

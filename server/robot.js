@@ -8,7 +8,7 @@ app.use(cors());
 
 let lastValue = "";
 
-const SERIAL_PATH = "COM4";
+const SERIAL_PATH = "COM3";
 
 app.get("/screen", (req, res) => {
   res.json({ distance: lastValue });
