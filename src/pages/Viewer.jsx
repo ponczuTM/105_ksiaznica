@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./Viewer.module.css";
 
 import kopernikPhoto from "../assets/images/kopernik.png";
+import robotAvatar from "../assets/images/robot_avatar.png"
 import mapPhoto from "../assets/images/mapa.png";
 
 import bookThumb from "../assets/images/book.png";
@@ -334,6 +335,12 @@ export default function Viewer() {
           {/* TRYB ROBOTA */}
           {robotMode ? (
             <div className={styles.robotMode}>
+              <img
+                src={robotAvatar}
+                alt="Robot avatar"
+                className={styles.robotAvatar}
+              />
+
               <button
                 onClick={onRobotBack}
                 disabled={!connected}

@@ -667,3 +667,8 @@ body {
   height: 100%;
   padding: 2rem;
 }
+
+.robotAvatar {
+  max-width: 30vw;
+  height: auto;
+}
