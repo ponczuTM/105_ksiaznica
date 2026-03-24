@@ -62,6 +62,7 @@ export default function Viewer() {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [lang, setLang] = useState("EN");
   const [robotMode, setRobotMode] = useState(false);
+  const [showPlanetsInBackground, setShowPlanetsInBackground] = useState(true);
 
   const backendBase = useMemo(() => {
     const localip = import.meta.env.VITE_BACKEND_IP;
@@ -168,6 +169,7 @@ export default function Viewer() {
       setRobotMode(true);
       setSelectedKey(null);
       setStopped(false);
+      setShowPlanetsInBackground(false);
       await sendControl("robot");
       setStatus("CONNECTED");
     } catch {
@@ -178,6 +180,7 @@ export default function Viewer() {
   const onRobotBack = async () => {
     try {
       setRobotMode(false);
+      setShowPlanetsInBackground(true);
       await sendControl("robot-off");
       setStatus("CONNECTED");
     } catch {
@@ -248,7 +251,7 @@ export default function Viewer() {
         </filter>
       </svg>
 
-      <SpaceBackground className={styles.spaceBg} />
+      {showPlanetsInBackground && <SpaceBackground className={styles.spaceBg} />}
 
       {/* Przełącznik języka — ukryty w trybie robota */}
       {!robotMode && (
